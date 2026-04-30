@@ -54,6 +54,15 @@ class CameraClient:
         if code != 0:
             raise CameraError(f"PtzCtrl ToPos returned error code {code}")
 
+    def return_to_guard(self) -> None:
+        resp = requests.post(
+            f"{self._base}/api.cgi",
+            params=self._params(),
+            json=[{"cmd": "SetPtzGuard", "action": 0, "param": {"channel": 0, "cmdStr": "toGuard"}}],
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+
     def _set_osd_time(self, enable: bool) -> None:
         resp = requests.post(
             f"{self._base}/api.cgi",
