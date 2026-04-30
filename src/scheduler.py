@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 import signal
+import threading
 import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -8,6 +9,7 @@ from dotenv import load_dotenv
 from src.config import Config, ConfigError
 from src.camera import CameraClient, CameraError
 from src.capture import run_capture
+from src.lighting import get_lighting_label
 from src.timelapse import collect_snapshots, build_timelapse
 
 logging.basicConfig(
@@ -16,13 +18,12 @@ logging.basicConfig(
 )
 log = logging.getLogger("scheduler")
 
-_shutdown = False
+_shutdown_event = threading.Event()
 
 
 def _handle_sigterm(signum, frame):
-    global _shutdown
     log.info("SIGTERM received, shutting down after current cycle")
-    _shutdown = True
+    _shutdown_event.set()
 
 
 def _rebuild_timelapse(cfg: Config, date_str: str) -> None:
@@ -36,7 +37,11 @@ def _rebuild_timelapse(cfg: Config, date_str: str) -> None:
 
 
 def run(cfg: Config) -> None:
+    _shutdown_event.clear()
+    Path(cfg.snapshot_dir).mkdir(parents=True, exist_ok=True)
+    Path(cfg.timelapse_dir).mkdir(parents=True, exist_ok=True)
     signal.signal(signal.SIGTERM, _handle_sigterm)
+    signal.signal(signal.SIGINT, _handle_sigterm)
     client = CameraClient(
         ip=cfg.camera_ip,
         username=cfg.camera_username,
@@ -47,7 +52,7 @@ def run(cfg: Config) -> None:
 
     log.info("Scheduler started. Interval: %d min", cfg.snapshot_interval)
 
-    while not _shutdown:
+    while not _shutdown_event.is_set():
         now = datetime.now(tz=timezone.utc)
 
         # Midnight rotation
@@ -58,11 +63,10 @@ def run(cfg: Config) -> None:
 
         # Skip night captures if not 24/7
         if not cfg.snapshot_24_7:
-            from src.lighting import get_lighting_label
             label = get_lighting_label(now, cfg.latitude, cfg.longitude, cfg.sunrise_sunset_window)
             if label == "night":
-                log.debug("Night — skipping capture (SNAPSHOT_24_7=false)")
-                time.sleep(60)
+                log.info("Night — skipping capture (SNAPSHOT_24_7=false)")
+                _shutdown_event.wait(timeout=60)
                 continue
 
         try:
@@ -73,14 +77,14 @@ def run(cfg: Config) -> None:
         except Exception as exc:
             log.error("Unexpected error during capture: %s", exc)
 
-        if _shutdown:
+        if _shutdown_event.is_set():
             break
 
         next_tick = now + interval
         sleep_secs = (next_tick - datetime.now(tz=timezone.utc)).total_seconds()
         if sleep_secs > 0:
             log.info("Next capture in %.0f seconds", sleep_secs)
-            time.sleep(sleep_secs)
+            _shutdown_event.wait(timeout=sleep_secs)
 
     log.info("Scheduler stopped")
 
