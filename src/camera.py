@@ -24,7 +24,11 @@ class CameraClient:
             timeout=self._timeout,
         )
         resp.raise_for_status()
-        presets = resp.json()[0]["value"]["PtzPreset"]
+        body = resp.json()
+        try:
+            presets = body[0]["value"]["PtzPreset"]
+        except (KeyError, IndexError) as exc:
+            raise CameraError(f"Unexpected API response: {body!r}") from exc
         for p in presets:
             if p["name"].lower() == name.lower():
                 return int(p["id"])
@@ -41,7 +45,11 @@ class CameraClient:
             timeout=self._timeout,
         )
         resp.raise_for_status()
-        code = resp.json()[0].get("code", -1)
+        body = resp.json()
+        try:
+            code = body[0].get("code", -1)
+        except (IndexError, AttributeError) as exc:
+            raise CameraError(f"Unexpected API response: {body!r}") from exc
         if code != 0:
             raise CameraError(f"GotoPreset returned error code {code}")
 

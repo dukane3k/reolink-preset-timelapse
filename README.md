@@ -32,3 +32,4 @@ See `.env.example` for all options with descriptions.
 
 - Reolink firmware versions vary. If snapshots fail, check that your camera's HTTP API is enabled in the Reolink app under **Device Settings → Network → Advanced**.
 - The snapshot URL format (`/cgi-bin/api.cgi?cmd=Snap`) works on most Reolink NVR and standalone camera firmware. If it returns an error, try `/api.cgi?cmd=Snap` instead.
+- Camera credentials are transmitted as URL query parameters (per the Reolink API design). Keep the camera on a trusted LAN segment and do not expose it to untrusted networks.
