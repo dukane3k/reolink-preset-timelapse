@@ -1,4 +1,6 @@
 from __future__ import annotations
+import random
+import string
 import requests
 
 
@@ -44,8 +46,6 @@ class CameraClient:
             raise CameraError(f"GotoPreset returned error code {code}")
 
     def fetch_snapshot(self) -> bytes:
-        import random
-        import string
         rs = "".join(random.choices(string.ascii_lowercase, k=8))
         resp = requests.get(
             f"{self._base}/cgi-bin/api.cgi",
