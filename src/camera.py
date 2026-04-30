@@ -18,21 +18,22 @@ class CameraClient:
         return {**self._auth, **extra}
 
     def get_preset_id(self, name: str) -> int:
-        resp = requests.get(
+        resp = requests.post(
             f"{self._base}/api.cgi",
-            params={**self._params(), "cmd": "GetPtzPreset", "channel": 0},
+            params=self._params(),
+            json=[{"cmd": "GetPtzPreset", "action": 1, "param": {"channel": 0}}],
             timeout=self._timeout,
         )
         resp.raise_for_status()
         body = resp.json()
         try:
-            presets = body[0]["value"]["PtzPreset"]
+            presets = body[0]["initial"]["PtzPreset"]
         except (KeyError, IndexError) as exc:
             raise CameraError(f"Unexpected API response: {body!r}") from exc
         for p in presets:
             if p["name"].lower() == name.lower():
                 return int(p["id"])
-        available = ", ".join(p["name"] for p in presets)
+        available = ", ".join(p["name"] for p in presets if not p["name"].startswith("pos"))
         raise CameraError(
             f"Preset '{name}' not found. Available presets: {available}"
         )
@@ -41,7 +42,7 @@ class CameraClient:
         resp = requests.post(
             f"{self._base}/api.cgi",
             params=self._params(),
-            json=[{"cmd": "GotoPreset", "param": {"channel": 0, "id": preset_id}}],
+            json=[{"cmd": "PtzCtrl", "action": 0, "param": {"channel": 0, "op": "ToPos", "id": preset_id, "speed": 32}}],
             timeout=self._timeout,
         )
         resp.raise_for_status()
@@ -51,7 +52,7 @@ class CameraClient:
         except (IndexError, AttributeError) as exc:
             raise CameraError(f"Unexpected API response: {body!r}") from exc
         if code != 0:
-            raise CameraError(f"GotoPreset returned error code {code}")
+            raise CameraError(f"PtzCtrl ToPos returned error code {code}")
 
     def fetch_snapshot(self) -> bytes:
         rs = "".join(random.choices(string.ascii_lowercase, k=8))
