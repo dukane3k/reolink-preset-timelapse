@@ -22,6 +22,7 @@ def build_timelapse(snapshots: list[Path], output: Path, fps: int) -> None:
         return
 
     output.parent.mkdir(parents=True, exist_ok=True)
+    tmp_output = output.with_suffix(".tmp.mp4")
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         for snap in snapshots:
@@ -39,15 +40,16 @@ def build_timelapse(snapshots: list[Path], output: Path, fps: int) -> None:
                 "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
-                str(output),
+                str(tmp_output),
             ],
             capture_output=True,
             text=True,
         )
         if result.returncode != 0:
             log.error("ffmpeg failed:\n%s", result.stderr)
-            output.unlink(missing_ok=True)
+            tmp_output.unlink(missing_ok=True)
             return
+        tmp_output.replace(output)
         log.info("Timelapse saved: %s", output)
     finally:
         Path(list_file).unlink(missing_ok=True)

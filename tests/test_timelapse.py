@@ -49,14 +49,20 @@ def test_build_timelapse_calls_ffmpeg(tmp_path):
     snapshots = _make_snapshots(tmp_path, names)
     output = tmp_path / "timelapse_2026-04-30.mp4"
 
+    def mock_ffmpeg_success(cmd, **kwargs):
+        # Create the temporary output file that ffmpeg would create
+        tmp_output = output.with_suffix(".tmp.mp4")
+        tmp_output.write_bytes(b"fake video data")
+        return MagicMock(returncode=0)
+
     with patch("src.timelapse.subprocess.run") as mock_run:
-        mock_run.return_value = MagicMock(returncode=0)
+        mock_run.side_effect = mock_ffmpeg_success
         build_timelapse(snapshots, output, fps=24)
 
     assert mock_run.called
     cmd = mock_run.call_args[0][0]
     assert "ffmpeg" in cmd[0]
-    assert str(output) in cmd
+    assert str(output.with_suffix(".tmp.mp4")) in cmd
 
 
 def test_build_timelapse_no_snapshots_skips(tmp_path):
