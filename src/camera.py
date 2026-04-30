@@ -54,6 +54,15 @@ class CameraClient:
         if code != 0:
             raise CameraError(f"PtzCtrl ToPos returned error code {code}")
 
+    def _set_osd_time(self, enable: bool) -> None:
+        resp = requests.post(
+            f"{self._base}/api.cgi",
+            params=self._params(),
+            json=[{"cmd": "SetOsd", "action": 0, "param": {"Osd": {"channel": 0, "osdTime": {"enable": int(enable), "pos": "Upper Left"}}}}],
+            timeout=self._timeout,
+        )
+        resp.raise_for_status()
+
     def fetch_snapshot(self) -> bytes:
         rs = "".join(random.choices(string.ascii_lowercase, k=8))
         resp = requests.get(
