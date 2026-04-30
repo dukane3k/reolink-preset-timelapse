@@ -43,6 +43,7 @@ class Config:
     camera_username: str
     camera_password: str
     preset_name: str
+    home_preset: str
     ptz_settle_delay: int
     snapshot_interval: int
     snapshot_24_7: bool
@@ -62,6 +63,7 @@ class Config:
             camera_username=_require("CAMERA_USERNAME"),
             camera_password=_require("CAMERA_PASSWORD"),
             preset_name=_require("CAMERA_PRESET_NAME"),
+            home_preset=os.environ.get("CAMERA_HOME_PRESET", "").strip(),
             ptz_settle_delay=_int("PTZ_SETTLE_DELAY", 4),
             snapshot_interval=_int("SNAPSHOT_INTERVAL", 15),
             snapshot_24_7=_bool("SNAPSHOT_24_7", True),

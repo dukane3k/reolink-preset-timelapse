@@ -12,6 +12,7 @@ def _cfg(tmp_path):
         camera_username="admin",
         camera_password="secret",
         preset_name="full garden",
+        home_preset="",
         ptz_settle_delay=0,
         snapshot_interval=15,
         snapshot_24_7=True,

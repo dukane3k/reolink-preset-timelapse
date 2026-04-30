@@ -36,7 +36,10 @@ def run_capture(cfg: Config, client: CameraClient, dt: datetime | None = None) -
         image_bytes = client.fetch_snapshot()
     finally:
         client._set_osd_time(True)
-        client.return_to_guard()
+
+    if cfg.home_preset:
+        home_id = client.get_preset_id(cfg.home_preset)
+        client.goto_preset(home_id)
 
     path = build_snapshot_path(cfg, dt, label)
     path.parent.mkdir(parents=True, exist_ok=True)
