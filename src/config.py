@@ -48,6 +48,7 @@ class Config:
     snapshot_24_7: bool
     latitude: float
     longitude: float
+    timezone: str
     sunrise_sunset_window: int
     timelapse_include_night: bool
     timelapse_fps: int
@@ -66,6 +67,7 @@ class Config:
             snapshot_24_7=_bool("SNAPSHOT_24_7", True),
             latitude=_float_required("LATITUDE"),
             longitude=_float_required("LONGITUDE"),
+            timezone=os.environ.get("TIMEZONE", os.environ.get("TZ", "UTC")),
             sunrise_sunset_window=_int("SUNRISE_SUNSET_WINDOW", 30),
             timelapse_include_night=_bool("TIMELAPSE_INCLUDE_NIGHT", True),
             timelapse_fps=_int("TIMELAPSE_FPS", 24),

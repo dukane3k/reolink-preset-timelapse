@@ -17,6 +17,7 @@ def _cfg(tmp_path):
         snapshot_24_7=True,
         latitude=41.8781,
         longitude=-87.6298,
+        timezone="UTC",
         sunrise_sunset_window=30,
         timelapse_include_night=True,
         timelapse_fps=24,

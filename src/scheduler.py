@@ -62,7 +62,7 @@ def run(cfg: Config) -> None:
 
         # Skip night captures if not 24/7
         if not cfg.snapshot_24_7:
-            label = get_lighting_label(now, cfg.latitude, cfg.longitude, cfg.sunrise_sunset_window)
+            label = get_lighting_label(now, cfg.latitude, cfg.longitude, cfg.sunrise_sunset_window, cfg.timezone)
             if label == "night":
                 log.info("Night — skipping capture (SNAPSHOT_24_7=false)")
                 _shutdown_event.wait(timeout=60)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 from astral import LocationInfo
 from astral.sun import sun
 
@@ -9,12 +10,15 @@ def get_lighting_label(
     latitude: float,
     longitude: float,
     window_minutes: int,
+    local_timezone: str = "UTC",
 ) -> str:
     """Return 'day', 'night', 'sunrise', or 'sunset' for a given UTC datetime."""
-    location = LocationInfo(latitude=latitude, longitude=longitude)
-    s = sun(location.observer, date=dt.date(), tzinfo=timezone.utc)
-    sunrise = s["sunrise"]
-    sunset = s["sunset"]
+    tz = ZoneInfo(local_timezone)
+    local_date = dt.astimezone(tz).date()
+    location = LocationInfo(latitude=latitude, longitude=longitude, timezone=local_timezone)
+    s = sun(location.observer, date=local_date, tzinfo=tz)
+    sunrise = s["sunrise"].astimezone(timezone.utc)
+    sunset = s["sunset"].astimezone(timezone.utc)
     window = timedelta(minutes=window_minutes)
 
     if abs(dt - sunrise) <= window:

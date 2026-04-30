@@ -23,7 +23,7 @@ def run_capture(cfg: Config, client: CameraClient, dt: datetime | None = None) -
     if dt is None:
         dt = datetime.now(tz=timezone.utc)
 
-    label = get_lighting_label(dt, cfg.latitude, cfg.longitude, cfg.sunrise_sunset_window)
+    label = get_lighting_label(dt, cfg.latitude, cfg.longitude, cfg.sunrise_sunset_window, cfg.timezone)
 
     preset_id = client.get_preset_id(cfg.preset_name)
     client.goto_preset(preset_id)
