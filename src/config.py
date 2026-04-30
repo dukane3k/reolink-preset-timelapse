@@ -55,6 +55,8 @@ class Config:
     timelapse_fps: int
     snapshot_dir: str
     timelapse_dir: str
+    camera_channel: int
+    ptz_speed: int
 
     @classmethod
     def from_env(cls) -> Config:
@@ -75,4 +77,6 @@ class Config:
             timelapse_fps=_int("TIMELAPSE_FPS", 24),
             snapshot_dir=_require("SNAPSHOT_DIR"),
             timelapse_dir=_require("TIMELAPSE_DIR"),
+            camera_channel=_int("CAMERA_CHANNEL", 0),
+            ptz_speed=_int("PTZ_SPEED", 32),
         )

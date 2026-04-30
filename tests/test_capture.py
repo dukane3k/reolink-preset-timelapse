@@ -24,6 +24,8 @@ def _cfg(tmp_path):
         timelapse_fps=24,
         snapshot_dir=str(tmp_path / "snapshots"),
         timelapse_dir=str(tmp_path / "timelapse"),
+        camera_channel=0,
+        ptz_speed=32,
     )
 
 

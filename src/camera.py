@@ -9,9 +9,11 @@ class CameraError(Exception):
 
 
 class CameraClient:
-    def __init__(self, ip: str, username: str, password: str, timeout: int = 10):
+    def __init__(self, ip: str, username: str, password: str, channel: int = 0, ptz_speed: int = 32, timeout: int = 10):
         self._base = f"http://{ip}"
         self._auth = {"user": username, "password": password}
+        self._channel = channel
+        self._ptz_speed = ptz_speed
         self._timeout = timeout
 
     def _params(self, **extra) -> dict:
@@ -21,7 +23,7 @@ class CameraClient:
         resp = requests.post(
             f"{self._base}/api.cgi",
             params=self._params(),
-            json=[{"cmd": "GetPtzPreset", "action": 1, "param": {"channel": 0}}],
+            json=[{"cmd": "GetPtzPreset", "action": 1, "param": {"channel": self._channel}}],
             timeout=self._timeout,
         )
         resp.raise_for_status()
@@ -42,7 +44,7 @@ class CameraClient:
         resp = requests.post(
             f"{self._base}/api.cgi",
             params=self._params(),
-            json=[{"cmd": "PtzCtrl", "action": 0, "param": {"channel": 0, "op": "ToPos", "id": preset_id, "speed": 32}}],
+            json=[{"cmd": "PtzCtrl", "action": 0, "param": {"channel": self._channel, "op": "ToPos", "id": preset_id, "speed": self._ptz_speed}}],
             timeout=self._timeout,
         )
         resp.raise_for_status()
@@ -58,7 +60,7 @@ class CameraClient:
         resp = requests.post(
             f"{self._base}/api.cgi",
             params=self._params(),
-            json=[{"cmd": "SetOsd", "action": 0, "param": {"Osd": {"channel": 0, "osdTime": {"enable": int(enable), "pos": "Upper Left"}}}}],
+            json=[{"cmd": "SetOsd", "action": 0, "param": {"Osd": {"channel": self._channel, "osdTime": {"enable": int(enable), "pos": "Upper Left"}}}}],
             timeout=self._timeout,
         )
         resp.raise_for_status()
@@ -67,7 +69,7 @@ class CameraClient:
         rs = "".join(random.choices(string.ascii_lowercase, k=8))
         resp = requests.get(
             f"{self._base}/cgi-bin/api.cgi",
-            params={**self._params(), "cmd": "Snap", "channel": 0, "rs": rs},
+            params={**self._params(), "cmd": "Snap", "channel": self._channel, "rs": rs},
             timeout=30,
         )
         resp.raise_for_status()

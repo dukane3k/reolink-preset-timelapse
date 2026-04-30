@@ -45,6 +45,8 @@ def run(cfg: Config) -> None:
         ip=cfg.camera_ip,
         username=cfg.camera_username,
         password=cfg.camera_password,
+        channel=cfg.camera_channel,
+        ptz_speed=cfg.ptz_speed,
     )
     interval = timedelta(minutes=cfg.snapshot_interval)
     current_date = datetime.now(tz=timezone.utc).date()
