@@ -1,0 +1,10 @@
+services:
+  timelapse:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - /data/timelapse/snapshots:/data/snapshots
+      - /data/timelapse/timelapse:/data/timelapse
+      - /data/timelapse/.env:/app/.env:ro
+    environment:
+      - TZ=America/Chicago
