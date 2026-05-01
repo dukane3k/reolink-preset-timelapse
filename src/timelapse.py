@@ -114,7 +114,7 @@ def _write_burnin_ass(
         if bucket == last_bucket:
             continue
         last_bucket = bucket
-        label = dt.strftime("%Y-%m-%d %H:%M")
+        label = dt.strftime("%m/%d/%Y %H:%M")
         emit_frames.append((i, label))
 
     lines = []
