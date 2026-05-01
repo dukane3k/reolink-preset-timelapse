@@ -15,7 +15,7 @@ services:
     container_name: reolink-timelapse-web
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8787:8080"
     volumes:
       - /data/timelapse/snapshots:/data/snapshots
       - /data/timelapse/timelapse:/data/timelapse
