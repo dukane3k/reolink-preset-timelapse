@@ -87,7 +87,7 @@ def create_app(
                     latest_snapshot = snaps[0].name
                     latest_snapshot_url = f"/media/snapshots/{date_str}/{latest_snapshot}"
                     stem = snaps[0].stem
-                    m = _re.search(r'(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})', stem)
+                    m = _SNAPSHOT_TS_RE.search(stem)
                     if m:
                         latest_snapshot_iso = f"{m.group(1)}T{m.group(2).replace('-', ':')}"
                     break
@@ -366,6 +366,7 @@ def create_app(
     _STATUS_VIDEO_RE = _re.compile(r'^timelapse_\d{4}-\d{2}-\d{2}\.mp4$')
     _STATUS_PERM_RE  = _re.compile(r'^timelapse_permanent_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$')
     _STATUS_DATE_RE  = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
+    _SNAPSHOT_TS_RE  = _re.compile(r'(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})')
 
     @app.get("/api/status")
     def api_status(watch: str = "", type: str = "", since: float = 0.0):

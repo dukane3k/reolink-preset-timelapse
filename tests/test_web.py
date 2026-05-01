@@ -329,6 +329,7 @@ def test_action_permanent_redirect_includes_watch(client, monkeypatch):
     assert "type=permanent" in loc
 
 
+@pytest.mark.xfail(reason="template not yet updated in Task 3", strict=True)
 def test_dashboard_snapshot_iso_in_data_ts(client, dirs):
     date_dir = dirs["snap_dir"] / "2026-05-01"
     date_dir.mkdir()
