@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re as _re
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
@@ -72,7 +73,7 @@ def create_app(
         all_dates = sorted(
             [d.name for d in snapshot_dir.iterdir() if d.is_dir()],
             reverse=True,
-        )
+        ) if snapshot_dir.exists() else []
         if all_dates:
             for date_str in all_dates:
                 snaps = sorted((snapshot_dir / date_str).glob("*.jpg"), reverse=True)
@@ -109,6 +110,8 @@ def create_app(
         ) if snapshot_dir.exists() else []
 
         selected_date = date or (all_dates[0] if all_dates else "")
+        if selected_date and not _re.fullmatch(r'\d{4}-\d{2}-\d{2}', selected_date):
+            selected_date = ""
         snaps: list[str] = []
         if selected_date:
             day_dir = snapshot_dir / selected_date
