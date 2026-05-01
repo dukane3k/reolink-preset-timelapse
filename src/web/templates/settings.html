@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Settings — Timelapse{% endblock %}
 {% block content %}
-<form method="post" action="/settings" id="settings-form">
+<form method="post" action="/settings" id="settings-form" autocomplete="off">
   {% macro field(key, label, type="text") %}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #1e1e2e;">
       <label for="{{ key }}" style="color:#aaa;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
       <div style="flex:1;max-width:340px;">
         <input id="{{ key }}" name="{{ key }}" type="{{ type }}"
                value="{{ values.get(key, '') }}"
+               autocomplete="off"
                style="width:100%;background:#1e1e2e;border:1px solid {% if errors.get(key) %}#cc3333{% else %}#333{% endif %};
                       color:#fff;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
         {% if errors.get(key) %}
