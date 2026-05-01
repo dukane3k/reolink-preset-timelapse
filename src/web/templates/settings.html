@@ -3,14 +3,14 @@
 {% block content %}
 <form method="post" action="/settings" id="settings-form" autocomplete="off">
   {% macro field(key, label, type="text") %}
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #1e1e2e;">
-      <label for="{{ key }}" style="color:#aaa;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;">
+      <label for="{{ key }}" style="color:#555;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
       <div style="flex:1;max-width:340px;">
         <input id="{{ key }}" name="{{ key }}" type="{{ type }}"
                value="{{ values.get(key, '') }}"
                autocomplete="off"
-               style="width:100%;background:#1e1e2e;border:1px solid {% if errors.get(key) %}#cc3333{% else %}#333{% endif %};
-                      color:#fff;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
+               style="width:100%;background:#f5f4f0;border:1px solid {% if errors.get(key) %}#cc3333{% else %}#e5e2dc{% endif %};
+                      color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
         {% if errors.get(key) %}
           <p style="color:#ff9999;font-size:0.75rem;margin-top:3px;">{{ errors[key] }}</p>
         {% endif %}
@@ -19,7 +19,14 @@
   {% endmacro %}
 
   <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
-    <button type="submit" class="btn btn-primary">💾 Save &amp; Restart</button>
+    <button type="submit" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+      Save &amp; Restart
+    </button>
   </div>
 
   <div class="card" style="margin-bottom:16px;">
@@ -67,7 +74,14 @@
   </div>
 
   <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
-    <button type="submit" class="btn btn-primary">💾 Save &amp; Restart</button>
+    <button type="submit" class="btn btn-primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17 21 17 13 7 13 7 21"/>
+        <polyline points="7 3 7 8 15 8"/>
+      </svg>
+      Save &amp; Restart
+    </button>
   </div>
 </form>
 <script>
