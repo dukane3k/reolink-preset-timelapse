@@ -299,9 +299,11 @@ def create_app(
             except Exception as exc:
                 logging.getLogger("web.actions").error("Timelapse build failed: %s", exc)
 
+        import time
+        since = time.time()
         background_tasks.add_task(do_build)
         return app.state.redirect_with_flash(
-            f"/videos?watch=timelapse_{date_str}.mp4&type=video",
+            f"/videos?watch=timelapse_{date_str}.mp4&type=video&since={since}",
             f"Building timelapse for {date_str} - check Videos in a moment.",
         )
 
@@ -346,9 +348,11 @@ def create_app(
             except Exception as exc:
                 logging.getLogger("web.actions").error("Permanent timelapse build failed: %s", exc)
 
+        import time
+        since = time.time()
         background_tasks.add_task(do_build)
         return app.state.redirect_with_flash(
-            f"/videos?watch=timelapse_permanent_{ts}.mp4&type=permanent",
+            f"/videos?watch=timelapse_permanent_{ts}.mp4&type=permanent&since={since}",
             "Building permanent timelapse - this may take several minutes.",
         )
 
@@ -362,7 +366,7 @@ def create_app(
             if not _STATUS_VIDEO_RE.match(watch):
                 return JSONResponse({"ready": False})
             path = timelapse_dir / watch
-            if path.is_file():
+            if path.is_file() and path.stat().st_mtime > since:
                 return JSONResponse({"ready": True, "file": watch})
             return JSONResponse({"ready": False})
 
@@ -370,7 +374,7 @@ def create_app(
             if not _STATUS_PERM_RE.match(watch):
                 return JSONResponse({"ready": False})
             path = timelapse_dir / "permanent" / watch
-            if path.is_file():
+            if path.is_file() and path.stat().st_mtime > since:
                 return JSONResponse({"ready": True, "file": watch})
             return JSONResponse({"ready": False})
 
