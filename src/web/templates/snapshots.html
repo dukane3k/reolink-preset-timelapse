@@ -4,13 +4,13 @@
 <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
   <label for="date-select" style="color:#aaa;font-size:0.875rem;">Date:</label>
   <select id="date-select" onchange="location='?date='+this.value"
-          style="background:#1e1e2e;border:1px solid #333;color:#fff;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
+          style="background:#f5f4f0;border:1px solid #e5e2dc;color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
     {% for d in all_dates %}
       <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>{{ d }}</option>
     {% endfor %}
   </select>
   {% if snaps %}
-    <span style="color:#555;font-size:0.8rem;">{{ snaps|length }} snapshots</span>
+    <span style="color:#aaa;font-size:0.8rem;">{{ snaps|length }} snapshots</span>
   {% endif %}
 </div>
 
@@ -24,7 +24,7 @@
         <img src="/media/snapshots/{{ selected_date }}/{{ snap }}"
              alt="{{ snap }}"
              style="width:100%;border-radius:4px;aspect-ratio:4/3;object-fit:cover;display:block;">
-        <p style="color:#666;font-size:0.7rem;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <p style="color:#bbb;font-size:0.7rem;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           {{ snap.split('_')[-1].replace('.jpg','') }}
           · {{ snap.split('_')[2] | replace('-',':') }}
         </p>
