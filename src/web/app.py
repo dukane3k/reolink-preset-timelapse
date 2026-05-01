@@ -22,11 +22,8 @@ def create_app(
 
     def _render(template: str, request: Request, active: str, **ctx):
         flash_message, flash_type = _flash(request)
-        response = templates.TemplateResponse(
-            template,
-            {"request": request, "active": active,
-             "flash_message": flash_message, "flash_type": flash_type, **ctx},
-        )
+        context = {"active": active, "flash_message": flash_message, "flash_type": flash_type, **ctx}
+        response = templates.TemplateResponse(request, template, context)
         response.delete_cookie("flash_message")
         response.delete_cookie("flash_type")
         return response
@@ -66,7 +63,6 @@ def create_app(
     @app.get("/", response_class=HTMLResponse)
     def dashboard(request: Request):
         from datetime import date, datetime
-        import re
         today = date.today().isoformat()
 
         # Find latest snapshot across all dates
