@@ -192,6 +192,28 @@ def test_build_timelapse_no_snapshots_skips(tmp_path):
     mock_run.assert_not_called()
 
 
+def test_build_timelapse_stabilized_applies_crop(tmp_path):
+    names = ["garden_2026-04-30_10-00-00_day.jpg"]
+    snapshots = _make_snapshots(tmp_path, names)
+    output = tmp_path / "timelapse_2026-04-30.mp4"
+
+    call_count = 0
+
+    def mock_ffmpeg_success(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            output.with_suffix(".tmp.mp4").write_bytes(b"fake")
+        return MagicMock(returncode=0)
+
+    with patch("src.timelapse.subprocess.run") as mock_run:
+        mock_run.side_effect = mock_ffmpeg_success
+        build_timelapse(snapshots, output, fps=24, stabilize=True, stabilize_crop=5)
+
+    second_cmd = " ".join(mock_run.call_args_list[1][0][0])
+    assert "crop=" in second_cmd
+
+
 def test_build_timelapse_stabilized_runs_two_passes(tmp_path):
     names = ["garden_2026-04-30_10-00-00_day.jpg"]
     snapshots = _make_snapshots(tmp_path, names)
