@@ -82,3 +82,36 @@ def test_media_video_serves_existing_file(client, dirs):
 def test_media_video_returns_404_for_missing(client):
     resp = client.get("/media/videos/nonexistent.mp4")
     assert resp.status_code == 404
+
+
+def test_dashboard_renders_empty_state(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b"No snapshots yet" in resp.content or b"no snapshots" in resp.content.lower()
+
+
+def test_dashboard_shows_latest_snapshot(client, dirs):
+    date_dir = dirs["snap_dir"] / "2026-05-01"
+    date_dir.mkdir()
+    img = date_dir / "Full_Garden_2026-05-01_10-00-00_day.jpg"
+    img.write_bytes(b"FAKEJPEG")
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b"Full_Garden_2026-05-01_10-00-00_day.jpg" in resp.content
+
+
+def test_dashboard_shows_todays_video(client, dirs):
+    from datetime import date
+    today = date.today().strftime("%Y-%m-%d")
+    mp4 = dirs["video_dir"] / f"timelapse_{today}.mp4"
+    mp4.write_bytes(b"FAKEMP4")
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert today.encode() in resp.content
+
+
+def test_dashboard_has_action_buttons(client):
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b"/actions/capture" in resp.content
+    assert b"/actions/timelapse" in resp.content

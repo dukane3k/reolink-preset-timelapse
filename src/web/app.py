@@ -61,6 +61,48 @@ def create_app(
             return FileResponse(str(perm))
         return JSONResponse({"detail": "Not found"}, status_code=404)
 
+    # --- Dashboard ---
+
+    @app.get("/", response_class=HTMLResponse)
+    def dashboard(request: Request):
+        from datetime import date, datetime
+        import re
+        today = date.today().isoformat()
+
+        # Find latest snapshot across all dates
+        latest_snapshot = None
+        latest_snapshot_url = None
+        snapshot_count_today = 0
+        all_dates = sorted(
+            [d.name for d in snapshot_dir.iterdir() if d.is_dir()],
+            reverse=True,
+        )
+        if all_dates:
+            for date_str in all_dates:
+                snaps = sorted((snapshot_dir / date_str).glob("*.jpg"), reverse=True)
+                if snaps:
+                    latest_snapshot = snaps[0].name
+                    latest_snapshot_url = f"/media/snapshots/{date_str}/{latest_snapshot}"
+                    break
+            today_dir = snapshot_dir / today
+            if today_dir.exists():
+                snapshot_count_today = len(list(today_dir.glob("*.jpg")))
+
+        # Find today's video
+        today_video = None
+        today_video_path = timelapse_dir / f"timelapse_{today}.mp4"
+        if today_video_path.is_file():
+            today_video = f"timelapse_{today}.mp4"
+
+        return app.state.render(
+            "dashboard.html", request, "dashboard",
+            latest_snapshot=latest_snapshot,
+            latest_snapshot_url=latest_snapshot_url,
+            snapshot_count_today=snapshot_count_today,
+            today=today,
+            today_video=today_video,
+        )
+
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
     app.state.timelapse_dir = timelapse_dir
