@@ -21,6 +21,16 @@ def collect_snapshots(snapshot_dir: Path, include_night: bool) -> list[Path]:
     return files
 
 
+def collect_snapshots_through_date(snapshot_root: Path, up_to_date: str, include_night: bool) -> list[Path]:
+    """Collect all snapshots from all dates up to and including up_to_date, sorted chronologically."""
+    if not snapshot_root.exists():
+        return []
+    all_files: list[Path] = []
+    for day_dir in sorted(d for d in snapshot_root.iterdir() if d.is_dir() and d.name <= up_to_date):
+        all_files.extend(collect_snapshots(day_dir, include_night))
+    return all_files
+
+
 def _parse_snapshot_dt(path: Path) -> datetime | None:
     m = _TIMESTAMP_RE.search(path.stem)
     if not m:

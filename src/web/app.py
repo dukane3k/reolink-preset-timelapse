@@ -8,7 +8,7 @@ from dotenv import dotenv_values
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from src.capture import run_capture
-from src.timelapse import build_timelapse, collect_snapshots
+from src.timelapse import build_timelapse, collect_snapshots, collect_snapshots_through_date
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -273,8 +273,7 @@ def create_app(
         except Exception as exc:
             return app.state.redirect_with_flash("/videos", f"Config error: {exc}", "error")
 
-        day_dir = snapshot_dir / date_str
-        snaps = collect_snapshots(day_dir, include_night=cfg.timelapse_include_night)
+        snaps = collect_snapshots_through_date(snapshot_dir, date_str, include_night=cfg.timelapse_include_night)
         output = timelapse_dir / f"timelapse_{date_str}.mp4"
 
         def do_build():
