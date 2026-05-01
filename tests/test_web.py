@@ -165,3 +165,30 @@ def test_videos_page_empty_state(client):
     resp = client.get("/videos")
     assert resp.status_code == 200
     assert b"No videos" in resp.content or b"no videos" in resp.content.lower()
+
+
+def test_settings_get_shows_current_values(client):
+    resp = client.get("/settings")
+    assert resp.status_code == 200
+    assert b"192.168.1.100" in resp.content
+    assert b"admin" in resp.content
+
+
+def test_settings_post_writes_env(client, dirs):
+    resp = client.post("/settings", data={"CAMERA_IP": "10.0.0.50", "TIMELAPSE_FPS": "30"})
+    assert resp.status_code == 303
+    from src.web.env_editor import read_env
+    values = read_env(dirs["env_file"])
+    assert values["CAMERA_IP"] == "10.0.0.50"
+    assert values["TIMELAPSE_FPS"] == "30"
+
+
+def test_settings_post_rejects_invalid_integer(client):
+    resp = client.post(
+        "/settings",
+        data={"TIMELAPSE_FPS": "not_a_number"},
+        follow_redirects=False,
+    )
+    # Re-renders the form with an error
+    assert resp.status_code == 200
+    assert b"not_a_number" in resp.content or b"invalid" in resp.content.lower()

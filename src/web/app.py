@@ -148,6 +148,57 @@ def create_app(
             selected=selected,
         )
 
+    # --- Settings ---
+
+    _INT_FIELDS = {
+        "PTZ_SETTLE_DELAY", "PTZ_SPEED", "CAMERA_CHANNEL",
+        "SNAPSHOT_INTERVAL", "SUNRISE_SUNSET_WINDOW",
+        "TIMELAPSE_FPS", "TIMELAPSE_RETENTION_DAYS",
+        "TIMELAPSE_ARCHIVE_EVERY", "TIMELAPSE_STABILIZE_CROP",
+        "TIMELAPSE_STABILIZE_SMOOTHING", "TIMELAPSE_STABILIZE_SHAKINESS",
+        "TIMELAPSE_SUBTITLE_EVERY", "TIMELAPSE_BURNIN_EVERY",
+    }
+    _FLOAT_FIELDS = {"LATITUDE", "LONGITUDE"}
+
+    from src.web.env_editor import read_env, write_env
+
+    @app.get("/settings", response_class=HTMLResponse)
+    def settings_get(request: Request):
+        values = read_env(env_path)
+        return app.state.render(
+            "settings.html", request, "settings",
+            values=values, errors={},
+        )
+
+    @app.post("/settings", response_class=HTMLResponse)
+    async def settings_post(request: Request):
+        form = await request.form()
+        data = dict(form)
+        errors: dict[str, str] = {}
+
+        for key, value in data.items():
+            if key in _INT_FIELDS:
+                try:
+                    int(value)
+                except ValueError:
+                    errors[key] = "Must be an integer"
+            elif key in _FLOAT_FIELDS:
+                try:
+                    float(value)
+                except ValueError:
+                    errors[key] = "Must be a number"
+
+        if errors:
+            values = read_env(env_path)
+            values.update(data)
+            return app.state.render(
+                "settings.html", request, "settings",
+                values=values, errors=errors,
+            )
+
+        write_env(env_path, data)
+        return app.state.redirect_with_flash("/settings", "Settings saved. Restart the timelapse container to apply.")
+
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
     app.state.timelapse_dir = timelapse_dir
