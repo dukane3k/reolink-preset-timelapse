@@ -161,6 +161,8 @@ def build_timelapse(
     fps: int,
     stabilize: bool = False,
     stabilize_crop: int = 5,
+    stabilize_smoothing: int = 5,
+    stabilize_shakiness: int = 5,
     subtitles: bool = True,
     subtitle_every: int = 1,
     burnin: bool = False,
@@ -178,7 +180,7 @@ def build_timelapse(
 
     try:
         if stabilize:
-            _build_stabilized(list_file, srt_file, ass_file, tmp_output, output, stabilize_crop)
+            _build_stabilized(list_file, srt_file, ass_file, tmp_output, output, stabilize_crop, stabilize_smoothing, stabilize_shakiness)
         else:
             _build_simple(list_file, srt_file, ass_file, tmp_output, output)
     finally:
@@ -214,14 +216,14 @@ def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tm
         tmp_output.unlink(missing_ok=True)
 
 
-def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path, stabilize_crop: int = 5) -> None:
+def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path, stabilize_crop: int = 5, stabilize_smoothing: int = 5, stabilize_shakiness: int = 5) -> None:
     transforms = tmp_output.with_suffix(".trf")
     try:
         # Pass 1: analyze motion
         ok = _run([
             "ffmpeg", "-y",
             "-f", "concat", "-safe", "0", "-i", list_file,
-            "-vf", f"vidstabdetect=result={transforms}:shakiness=10:accuracy=15",
+            "-vf", f"vidstabdetect=result={transforms}:shakiness={stabilize_shakiness}:accuracy=15",
             "-f", "null", "-",
         ], "vidstabdetect")
         if not ok:
@@ -229,10 +231,9 @@ def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None
             _build_simple(list_file, srt_file, ass_file, tmp_output, output)
             return
 
-
         # Pass 2: apply stabilization, crop edges, burn-in, and optionally embed subtitles
         # crop=keep preserves frame size so we can apply an explicit crop filter after
-        stabilize_vf = f"vidstabtransform=input={transforms}:smoothing=30:crop=keep"
+        stabilize_vf = f"vidstabtransform=input={transforms}:smoothing={stabilize_smoothing}:crop=keep"
         crop_filter = f"crop=iw*{(100-stabilize_crop*2)/100}:ih*{(100-stabilize_crop*2)/100}" if stabilize_crop > 0 else None
         filters = [stabilize_vf]
         if crop_filter:

@@ -62,6 +62,8 @@ class Config:
     timelapse_retain_all: bool
     timelapse_stabilize: bool
     timelapse_stabilize_crop: int
+    timelapse_stabilize_smoothing: int
+    timelapse_stabilize_shakiness: int
     timelapse_subtitles: bool
     timelapse_subtitle_every: int
     timelapse_burnin: bool
@@ -93,6 +95,8 @@ class Config:
             timelapse_retain_all=_bool("TIMELAPSE_RETAIN_ALL", False),
             timelapse_stabilize=_bool("TIMELAPSE_STABILIZE", True),
             timelapse_stabilize_crop=_int("TIMELAPSE_STABILIZE_CROP", 5),
+            timelapse_stabilize_smoothing=_int("TIMELAPSE_STABILIZE_SMOOTHING", 5),
+            timelapse_stabilize_shakiness=_int("TIMELAPSE_STABILIZE_SHAKINESS", 5),
             timelapse_subtitles=_bool("TIMELAPSE_SUBTITLES", True),
             timelapse_subtitle_every=_int("TIMELAPSE_SUBTITLE_EVERY", 1),
             timelapse_burnin=_bool("TIMELAPSE_BURNIN", False),

@@ -31,7 +31,7 @@ def _rebuild_timelapse(cfg: Config, date_str: str) -> None:
     snapshots = collect_snapshots(snapshot_dir, include_night=cfg.timelapse_include_night)
     output = Path(cfg.timelapse_dir) / f"timelapse_{date_str}.mp4"
     try:
-        build_timelapse(snapshots, output, fps=cfg.timelapse_fps, stabilize=cfg.timelapse_stabilize, stabilize_crop=cfg.timelapse_stabilize_crop, subtitles=cfg.timelapse_subtitles, subtitle_every=cfg.timelapse_subtitle_every, burnin=cfg.timelapse_burnin, burnin_every_minutes=cfg.timelapse_burnin_every)
+        build_timelapse(snapshots, output, fps=cfg.timelapse_fps, stabilize=cfg.timelapse_stabilize, stabilize_crop=cfg.timelapse_stabilize_crop, stabilize_smoothing=cfg.timelapse_stabilize_smoothing, stabilize_shakiness=cfg.timelapse_stabilize_shakiness, subtitles=cfg.timelapse_subtitles, subtitle_every=cfg.timelapse_subtitle_every, burnin=cfg.timelapse_burnin, burnin_every_minutes=cfg.timelapse_burnin_every)
     except Exception as exc:
         log.error("Timelapse build failed: %s", exc)
 
