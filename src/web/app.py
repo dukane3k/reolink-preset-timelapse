@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -32,7 +32,6 @@ def create_app(
         return response
 
     def _redirect_with_flash(url: str, message: str, typ: str = "success"):
-        from fastapi.responses import RedirectResponse
         resp = RedirectResponse(url=url, status_code=303)
         resp.set_cookie("flash_message", message, max_age=10)
         resp.set_cookie("flash_type", typ, max_age=10)
@@ -42,21 +41,25 @@ def create_app(
 
     @app.get("/media/snapshots/{date}/{filename}")
     def serve_snapshot(date: str, filename: str):
-        path = snapshot_dir / date / filename
+        path = (snapshot_dir / date / filename).resolve()
+        if not str(path).startswith(str(snapshot_dir.resolve())):
+            return JSONResponse({"detail": "Not found"}, status_code=404)
         if not path.is_file():
             return JSONResponse({"detail": "Not found"}, status_code=404)
         return FileResponse(str(path))
 
     @app.get("/media/videos/{filename}")
     def serve_video(filename: str):
-        path = timelapse_dir / filename
-        if not path.is_file():
-            # check permanent subdirectory
-            perm = timelapse_dir / "permanent" / filename
-            if perm.is_file():
-                return FileResponse(str(perm))
+        root = timelapse_dir.resolve()
+        path = (timelapse_dir / filename).resolve()
+        if not str(path).startswith(str(root)):
             return JSONResponse({"detail": "Not found"}, status_code=404)
-        return FileResponse(str(path))
+        if path.is_file():
+            return FileResponse(str(path))
+        perm = (timelapse_dir / "permanent" / filename).resolve()
+        if str(perm).startswith(str(root)) and perm.is_file():
+            return FileResponse(str(perm))
+        return JSONResponse({"detail": "Not found"}, status_code=404)
 
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
