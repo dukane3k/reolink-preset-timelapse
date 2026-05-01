@@ -339,6 +339,40 @@ def create_app(
         background_tasks.add_task(do_build)
         return app.state.redirect_with_flash("/videos", "Building permanent timelapse - this may take several minutes.")
 
+    @app.get("/api/status")
+    def api_status(watch: str = "", type: str = "", since: float = 0.0):
+        _VIDEO_RE = _re.compile(r'^timelapse_\d{4}-\d{2}-\d{2}\.mp4$')
+        _PERM_RE  = _re.compile(r'^timelapse_permanent_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$')
+        _DATE_RE  = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
+
+        if type == "video":
+            if not _VIDEO_RE.match(watch):
+                return JSONResponse({"ready": False})
+            path = timelapse_dir / watch
+            if path.is_file():
+                return JSONResponse({"ready": True, "file": watch})
+            return JSONResponse({"ready": False})
+
+        if type == "permanent":
+            if not _PERM_RE.match(watch):
+                return JSONResponse({"ready": False})
+            path = timelapse_dir / "permanent" / watch
+            if path.is_file():
+                return JSONResponse({"ready": True, "file": watch})
+            return JSONResponse({"ready": False})
+
+        if type == "snapshot":
+            if not _DATE_RE.match(watch):
+                return JSONResponse({"ready": False})
+            day_dir = snapshot_dir / watch
+            if day_dir.exists():
+                for jpg in day_dir.glob("*.jpg"):
+                    if jpg.stat().st_mtime > since:
+                        return JSONResponse({"ready": True, "file": jpg.name})
+            return JSONResponse({"ready": False})
+
+        return JSONResponse({"ready": False})
+
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
     app.state.timelapse_dir = timelapse_dir

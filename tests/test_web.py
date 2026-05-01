@@ -223,3 +223,71 @@ def test_action_permanent_timelapse_redirects(client, monkeypatch):
     resp = client.post("/actions/timelapse/permanent")
     assert resp.status_code == 303
     assert resp.headers["location"] == "/videos"
+
+
+def test_api_status_video_not_ready(client):
+    resp = client.get("/api/status?watch=timelapse_2026-05-01.mp4&type=video")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": False}
+
+
+def test_api_status_video_ready(client, dirs):
+    (dirs["video_dir"] / "timelapse_2026-05-01.mp4").write_bytes(b"x")
+    resp = client.get("/api/status?watch=timelapse_2026-05-01.mp4&type=video")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": True, "file": "timelapse_2026-05-01.mp4"}
+
+
+def test_api_status_permanent_not_ready(client):
+    resp = client.get("/api/status?watch=timelapse_permanent_2026-05-01_12-00-00.mp4&type=permanent")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": False}
+
+
+def test_api_status_permanent_ready(client, dirs):
+    perm_dir = dirs["video_dir"] / "permanent"
+    perm_dir.mkdir()
+    (perm_dir / "timelapse_permanent_2026-05-01_12-00-00.mp4").write_bytes(b"x")
+    resp = client.get("/api/status?watch=timelapse_permanent_2026-05-01_12-00-00.mp4&type=permanent")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": True, "file": "timelapse_permanent_2026-05-01_12-00-00.mp4"}
+
+
+def test_api_status_snapshot_not_ready(client):
+    import time
+    since = time.time()
+    resp = client.get(f"/api/status?watch=2026-05-01&type=snapshot&since={since}")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": False}
+
+
+def test_api_status_snapshot_ready(client, dirs):
+    import time
+    since = time.time() - 5
+    date_dir = dirs["snap_dir"] / "2026-05-01"
+    date_dir.mkdir()
+    img = date_dir / "Full_Garden_2026-05-01_10-00-00_day.jpg"
+    img.write_bytes(b"x")
+    resp = client.get(f"/api/status?watch=2026-05-01&type=snapshot&since={since}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ready"] is True
+    assert "file" in data
+
+
+def test_api_status_rejects_invalid_video_name(client):
+    resp = client.get("/api/status?watch=../../etc/passwd&type=video")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": False}
+
+
+def test_api_status_rejects_invalid_permanent_name(client):
+    resp = client.get("/api/status?watch=../../etc/passwd&type=permanent")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": False}
+
+
+def test_api_status_rejects_invalid_snapshot_date(client):
+    resp = client.get("/api/status?watch=../sneaky&type=snapshot&since=0")
+    assert resp.status_code == 200
+    assert resp.json() == {"ready": False}
