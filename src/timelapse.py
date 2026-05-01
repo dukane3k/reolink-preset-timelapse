@@ -128,7 +128,9 @@ def _write_burnin_ass(
             end_sec = min(start_sec + display_seconds, next_start_sec)
         else:
             end_sec = start_sec + display_seconds
-        fade_out_ms = min(fade_ms, int((end_sec - start_sec) * 1000))
+        # Only fade out if the timestamp has the full display window; otherwise hard-cut
+        display_ms = int((end_sec - start_sec) * 1000)
+        fade_out_ms = fade_ms if display_ms >= int(display_seconds * 1000) else 0
         start = _ass_timestamp(timedelta(seconds=start_sec))
         end = _ass_timestamp(timedelta(seconds=end_sec))
         text = f"{{\\fad(0,{fade_out_ms})}}{label.upper()}"
