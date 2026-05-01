@@ -327,3 +327,13 @@ def test_action_permanent_redirect_includes_watch(client, monkeypatch):
     loc = resp.headers["location"]
     assert re.search(r"watch=timelapse_permanent_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4", loc)
     assert "type=permanent" in loc
+
+
+def test_dashboard_snapshot_iso_in_data_ts(client, dirs):
+    date_dir = dirs["snap_dir"] / "2026-05-01"
+    date_dir.mkdir()
+    img = date_dir / "Full_Garden_2026-05-01_14-32-05_day.jpg"
+    img.write_bytes(b"FAKEJPEG")
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b'data-ts="2026-05-01T14:32:05"' in resp.content

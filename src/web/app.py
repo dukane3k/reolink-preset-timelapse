@@ -74,6 +74,7 @@ def create_app(
         # Find latest snapshot across all dates
         latest_snapshot = None
         latest_snapshot_url = None
+        latest_snapshot_iso = None
         snapshot_count_today = 0
         all_dates = sorted(
             [d.name for d in snapshot_dir.iterdir() if d.is_dir()],
@@ -85,6 +86,10 @@ def create_app(
                 if snaps:
                     latest_snapshot = snaps[0].name
                     latest_snapshot_url = f"/media/snapshots/{date_str}/{latest_snapshot}"
+                    stem = snaps[0].stem
+                    m = _re.search(r'(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})', stem)
+                    if m:
+                        latest_snapshot_iso = f"{m.group(1)}T{m.group(2).replace('-', ':')}"
                     break
             today_dir = snapshot_dir / today
             if today_dir.exists():
@@ -100,9 +105,11 @@ def create_app(
             "dashboard.html", request, "dashboard",
             latest_snapshot=latest_snapshot,
             latest_snapshot_url=latest_snapshot_url,
+            latest_snapshot_iso=latest_snapshot_iso,
             snapshot_count_today=snapshot_count_today,
             today=today,
             today_video=today_video,
+            today_video_iso=None,
         )
 
     # --- Snapshots ---
