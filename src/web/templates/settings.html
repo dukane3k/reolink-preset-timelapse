@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Settings — Timelapse{% endblock %}
 {% block content %}
-<form method="post" action="/settings">
+<form method="post" action="/settings" id="settings-form">
   {% macro field(key, label, type="text") %}
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #1e1e2e;">
       <label for="{{ key }}" style="color:#aaa;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
@@ -16,6 +16,10 @@
       </div>
     </div>
   {% endmacro %}
+
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+    <button type="submit" class="btn btn-primary">💾 Save &amp; Restart</button>
+  </div>
 
   <div class="card" style="margin-bottom:16px;">
     <div class="card-label">Camera</div>
@@ -65,4 +69,12 @@
     <button type="submit" class="btn btn-primary">💾 Save &amp; Restart</button>
   </div>
 </form>
+<script>
+  var dirty = false;
+  document.getElementById('settings-form').addEventListener('change', function() { dirty = true; });
+  document.getElementById('settings-form').addEventListener('submit', function() { dirty = false; });
+  window.addEventListener('beforeunload', function(e) {
+    if (dirty) { e.preventDefault(); }
+  });
+</script>
 {% endblock %}
