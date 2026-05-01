@@ -24,6 +24,16 @@ Dockerized app that periodically moves a Reolink PTZ camera to a named preset, c
 - Snapshots: `/data/timelapse/snapshots/YYYY-MM-DD/`
 - Timelapse: `/data/timelapse/timelapse/timelapse_YYYY-MM-DD.mp4`
 
+## Manual Capture
+
+Trigger an immediate snapshot outside the normal schedule:
+
+```bash
+docker exec timelapse-timelapse-1 python -m src.capture_now
+```
+
+Uses all the same settings as scheduled captures (preset, OSD, home preset, lighting label). Prints the saved file path on success.
+
 ## Configuration
 
 See `.env.example` for all options with descriptions.
