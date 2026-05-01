@@ -231,9 +231,13 @@ def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None
             _build_simple(list_file, srt_file, ass_file, tmp_output, output)
             return
 
-        # Pass 2: apply stabilization, crop edges, burn-in, and optionally embed subtitles
-        # crop=keep preserves frame size so we can apply an explicit crop filter after
-        stabilize_vf = f"vidstabtransform=input={transforms}:smoothing={stabilize_smoothing}:crop=keep"
+        # Pass 2: apply stabilization with auto-zoom to keep center clean, then trim any remaining edges
+        # optzoom=2 calculates the zoom needed to fill the frame without black borders,
+        # concentrating any residual distortion at the edges rather than the center.
+        stabilize_vf = (
+            f"vidstabtransform=input={transforms}:smoothing={stabilize_smoothing}"
+            f":crop=black:optzoom=2:zoom=0"
+        )
         crop_filter = f"crop=iw*{(100-stabilize_crop*2)/100}:ih*{(100-stabilize_crop*2)/100}" if stabilize_crop > 0 else None
         filters = [stabilize_vf]
         if crop_filter:
