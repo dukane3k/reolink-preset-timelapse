@@ -29,6 +29,7 @@ def _cfg(tmp_path):
         timelapse_retention_days=7,
         timelapse_archive_every=7,
         timelapse_retain_all=False,
+        timelapse_stabilize=False,
     )
 
 
@@ -63,6 +64,7 @@ def test_build_snapshot_path_uses_local_timezone(tmp_path):
         timelapse_retention_days=7,
         timelapse_archive_every=7,
         timelapse_retain_all=False,
+        timelapse_stabilize=False,
     )
     # 01:35 UTC = 19:35 CDT (UTC-5) on the previous calendar day
     dt = datetime(2026, 5, 1, 0, 35, 0, tzinfo=timezone.utc)

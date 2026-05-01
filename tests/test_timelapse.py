@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 from pathlib import Path
 from src.timelapse import collect_snapshots, build_timelapse
 
@@ -50,14 +50,13 @@ def test_build_timelapse_calls_ffmpeg(tmp_path):
     output = tmp_path / "timelapse_2026-04-30.mp4"
 
     def mock_ffmpeg_success(cmd, **kwargs):
-        # Create the temporary output file that ffmpeg would create
         tmp_output = output.with_suffix(".tmp.mp4")
         tmp_output.write_bytes(b"fake video data")
         return MagicMock(returncode=0)
 
     with patch("src.timelapse.subprocess.run") as mock_run:
         mock_run.side_effect = mock_ffmpeg_success
-        build_timelapse(snapshots, output, fps=24)
+        build_timelapse(snapshots, output, fps=24, stabilize=False)
 
     assert mock_run.called
     cmd = mock_run.call_args[0][0]
@@ -70,3 +69,52 @@ def test_build_timelapse_no_snapshots_skips(tmp_path):
     with patch("src.timelapse.subprocess.run") as mock_run:
         build_timelapse([], output, fps=24)
     mock_run.assert_not_called()
+
+
+def test_build_timelapse_stabilized_runs_two_passes(tmp_path):
+    names = ["garden_2026-04-30_10-00-00_day.jpg"]
+    snapshots = _make_snapshots(tmp_path, names)
+    output = tmp_path / "timelapse_2026-04-30.mp4"
+
+    call_count = 0
+
+    def mock_ffmpeg_success(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 2:
+            tmp_output = output.with_suffix(".tmp.mp4")
+            tmp_output.write_bytes(b"fake stabilized video")
+        return MagicMock(returncode=0)
+
+    with patch("src.timelapse.subprocess.run") as mock_run:
+        mock_run.side_effect = mock_ffmpeg_success
+        build_timelapse(snapshots, output, fps=24, stabilize=True)
+
+    assert mock_run.call_count == 2
+    first_cmd = mock_run.call_args_list[0][0][0]
+    second_cmd = mock_run.call_args_list[1][0][0]
+    assert "vidstabdetect" in " ".join(first_cmd)
+    assert "vidstabtransform" in " ".join(second_cmd)
+
+
+def test_build_timelapse_stabilize_falls_back_on_pass1_failure(tmp_path):
+    names = ["garden_2026-04-30_10-00-00_day.jpg"]
+    snapshots = _make_snapshots(tmp_path, names)
+    output = tmp_path / "timelapse_2026-04-30.mp4"
+
+    call_count = 0
+
+    def mock_ffmpeg(cmd, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            return MagicMock(returncode=1, stderr="vidstab error")
+        tmp_output = output.with_suffix(".tmp.mp4")
+        tmp_output.write_bytes(b"fake video")
+        return MagicMock(returncode=0)
+
+    with patch("src.timelapse.subprocess.run") as mock_run:
+        mock_run.side_effect = mock_ffmpeg
+        build_timelapse(snapshots, output, fps=24, stabilize=True)
+
+    assert output.exists()

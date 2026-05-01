@@ -60,6 +60,7 @@ class Config:
     timelapse_retention_days: int
     timelapse_archive_every: int
     timelapse_retain_all: bool
+    timelapse_stabilize: bool
 
     @classmethod
     def from_env(cls) -> Config:
@@ -85,4 +86,5 @@ class Config:
             timelapse_retention_days=_int("TIMELAPSE_RETENTION_DAYS", 7),
             timelapse_archive_every=_int("TIMELAPSE_ARCHIVE_EVERY", 7),
             timelapse_retain_all=_bool("TIMELAPSE_RETAIN_ALL", False),
+            timelapse_stabilize=_bool("TIMELAPSE_STABILIZE", True),
         )
