@@ -24,8 +24,12 @@ def prune_timelapses(
     today: date,
     retention_days: int,
     archive_every: int,
+    retain_all: bool = False,
 ) -> None:
     """Delete timelapse MP4s outside the retention window that don't fall on an archive interval."""
+    if retain_all:
+        return
+
     cutoff = today - timedelta(days=retention_days)
 
     candidates: list[tuple[date, Path]] = []

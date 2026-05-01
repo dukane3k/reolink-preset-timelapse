@@ -59,6 +59,7 @@ class Config:
     ptz_speed: int
     timelapse_retention_days: int
     timelapse_archive_every: int
+    timelapse_retain_all: bool
 
     @classmethod
     def from_env(cls) -> Config:
@@ -83,4 +84,5 @@ class Config:
             ptz_speed=_int("PTZ_SPEED", 32),
             timelapse_retention_days=_int("TIMELAPSE_RETENTION_DAYS", 7),
             timelapse_archive_every=_int("TIMELAPSE_ARCHIVE_EVERY", 7),
+            timelapse_retain_all=_bool("TIMELAPSE_RETAIN_ALL", False),
         )

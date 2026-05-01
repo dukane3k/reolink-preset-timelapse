@@ -51,6 +51,15 @@ def test_mixed_old_files(tmp_path):
     assert not delete.exists()
 
 
+def test_retain_all_skips_pruning(tmp_path):
+    today = date(2026, 5, 10)
+    old = _make_timelapse(tmp_path, date(2026, 5, 2))  # would normally be pruned
+
+    prune_timelapses(tmp_path, today=today, retention_days=7, archive_every=7, retain_all=True)
+
+    assert old.exists()
+
+
 def test_unrelated_files_are_not_touched(tmp_path):
     today = date(2026, 5, 10)
     other = tmp_path / "permanent_timelapse.mp4"

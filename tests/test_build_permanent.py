@@ -28,6 +28,7 @@ def _cfg(tmp_path):
         ptz_speed=32,
         timelapse_retention_days=7,
         timelapse_archive_every=7,
+        timelapse_retain_all=False,
     )
 
 

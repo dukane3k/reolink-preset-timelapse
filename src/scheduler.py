@@ -66,6 +66,7 @@ def run(cfg: Config) -> None:
                 today=now.date(),
                 retention_days=cfg.timelapse_retention_days,
                 archive_every=cfg.timelapse_archive_every,
+                retain_all=cfg.timelapse_retain_all,
             )
             current_date = now.date()
 
