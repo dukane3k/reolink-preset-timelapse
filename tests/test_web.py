@@ -195,7 +195,6 @@ def test_settings_post_rejects_invalid_integer(client):
 
 
 def test_action_capture_redirects(client, monkeypatch):
-    import src.web.app as web_app
     called = {}
     def fake_capture(cfg, client_obj, dt=None):
         called["yes"] = True
@@ -203,6 +202,7 @@ def test_action_capture_redirects(client, monkeypatch):
         return Path("/fake/snap.jpg")
     monkeypatch.setattr("src.web.app.run_capture", fake_capture)
     resp = client.post("/actions/capture")
+    assert called.get("yes")
     assert resp.status_code == 303
     assert resp.headers["location"] == "/"
 

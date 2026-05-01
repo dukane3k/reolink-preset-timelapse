@@ -1,7 +1,10 @@
 from __future__ import annotations
+import logging
+import os
 import re as _re
 from pathlib import Path
 from fastapi import FastAPI, Request, BackgroundTasks
+from dotenv import dotenv_values
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from src.capture import run_capture
@@ -217,12 +220,10 @@ def create_app(
     async def action_capture(request: Request, background_tasks: BackgroundTasks):
         from src.config import Config
         from src.camera import CameraClient
-        from dotenv import dotenv_values
-        import os
 
         env_vals = dotenv_values(str(env_path))
         for k, v in env_vals.items():
-            os.environ.setdefault(k, v or "")
+            os.environ[k] = v or ""
 
         try:
             cfg = Config.from_env()
@@ -241,7 +242,6 @@ def create_app(
             try:
                 run_capture(cfg, camera)
             except Exception as exc:
-                import logging
                 logging.getLogger("web.actions").error("Capture failed: %s", exc)
 
         background_tasks.add_task(do_capture)
@@ -250,18 +250,15 @@ def create_app(
     @app.post("/actions/timelapse")
     async def action_timelapse(request: Request, background_tasks: BackgroundTasks):
         from datetime import date
-        from dotenv import dotenv_values
-        import os
-        import re as _re2
 
         form = await request.form()
         date_str = form.get("date", "") or date.today().isoformat()
-        if not _re2.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str):
+        if not _re.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str):
             date_str = date.today().isoformat()
 
         env_vals = dotenv_values(str(env_path))
         for k, v in env_vals.items():
-            os.environ.setdefault(k, v or "")
+            os.environ[k] = v or ""
 
         try:
             from src.config import Config
@@ -287,7 +284,6 @@ def create_app(
                     burnin_every_minutes=cfg.timelapse_burnin_every,
                 )
             except Exception as exc:
-                import logging
                 logging.getLogger("web.actions").error("Timelapse build failed: %s", exc)
 
         background_tasks.add_task(do_build)
@@ -296,12 +292,10 @@ def create_app(
     @app.post("/actions/timelapse/permanent")
     async def action_timelapse_permanent(request: Request, background_tasks: BackgroundTasks):
         from datetime import datetime
-        from dotenv import dotenv_values
-        import os
 
         env_vals = dotenv_values(str(env_path))
         for k, v in env_vals.items():
-            os.environ.setdefault(k, v or "")
+            os.environ[k] = v or ""
 
         try:
             from src.config import Config
@@ -334,7 +328,6 @@ def create_app(
                     burnin_every_minutes=cfg.timelapse_burnin_every,
                 )
             except Exception as exc:
-                import logging
                 logging.getLogger("web.actions").error("Permanent timelapse build failed: %s", exc)
 
         background_tasks.add_task(do_build)
