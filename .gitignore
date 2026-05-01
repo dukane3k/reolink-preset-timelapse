@@ -4,3 +4,6 @@ __pycache__/
 *.mp4
 snapshots/
 timelapse/
+docs/superpowers/
+.claude/
+CLAUDE.md
