@@ -50,11 +50,10 @@ def test_write_env_appends_new_key(tmp_path):
     assert result["NEW_KEY"] == "value"
 
 
-def test_write_env_atomic_creates_tmp_then_renames(tmp_path):
+def test_write_env_no_tmp_file_left_behind(tmp_path):
     env = tmp_path / ".env"
     env.write_text('FOO=bar\n')
     write_env(env, {"FOO": "new"})
-    # tmp file must not exist after successful write
     assert not (tmp_path / ".env.tmp").exists()
     assert read_env(env)["FOO"] == "new"
 

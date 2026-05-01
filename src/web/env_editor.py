@@ -42,6 +42,4 @@ def write_env(path: Path, updates: dict[str, str]) -> None:
         if key not in updated_keys:
             new_lines.append(f"{key}={value}\n")
 
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text("".join(new_lines))
-    tmp.replace(path)
+    path.write_text("".join(new_lines))
