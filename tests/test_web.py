@@ -192,3 +192,34 @@ def test_settings_post_rejects_invalid_integer(client):
     # Re-renders the form with an error
     assert resp.status_code == 200
     assert b"not_a_number" in resp.content or b"invalid" in resp.content.lower()
+
+
+def test_action_capture_redirects(client, monkeypatch):
+    import src.web.app as web_app
+    called = {}
+    def fake_capture(cfg, client_obj, dt=None):
+        called["yes"] = True
+        from pathlib import Path
+        return Path("/fake/snap.jpg")
+    monkeypatch.setattr("src.web.app.run_capture", fake_capture)
+    resp = client.post("/actions/capture")
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/"
+
+
+def test_action_timelapse_redirects(client, monkeypatch):
+    def fake_build(*args, **kwargs):
+        pass
+    monkeypatch.setattr("src.web.app.build_timelapse", fake_build)
+    resp = client.post("/actions/timelapse")
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/videos"
+
+
+def test_action_permanent_timelapse_redirects(client, monkeypatch):
+    def fake_build(*args, **kwargs):
+        pass
+    monkeypatch.setattr("src.web.app.build_timelapse", fake_build)
+    resp = client.post("/actions/timelapse/permanent")
+    assert resp.status_code == 303
+    assert resp.headers["location"] == "/videos"

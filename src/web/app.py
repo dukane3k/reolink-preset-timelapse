@@ -1,9 +1,11 @@
 from __future__ import annotations
 import re as _re
 from pathlib import Path
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from src.capture import run_capture
+from src.timelapse import build_timelapse, collect_snapshots
 
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -208,6 +210,135 @@ def create_app(
 
         write_env(env_path, data)
         return app.state.redirect_with_flash("/settings", "Settings saved. Restart the timelapse container to apply.")
+
+    # --- Actions ---
+
+    @app.post("/actions/capture")
+    async def action_capture(request: Request, background_tasks: BackgroundTasks):
+        from src.config import Config
+        from src.camera import CameraClient
+        from dotenv import dotenv_values
+        import os
+
+        env_vals = dotenv_values(str(env_path))
+        for k, v in env_vals.items():
+            os.environ.setdefault(k, v or "")
+
+        try:
+            cfg = Config.from_env()
+        except Exception as exc:
+            return app.state.redirect_with_flash("/", f"Config error: {exc}", "error")
+
+        camera = CameraClient(
+            ip=cfg.camera_ip,
+            username=cfg.camera_username,
+            password=cfg.camera_password,
+            channel=cfg.camera_channel,
+            ptz_speed=cfg.ptz_speed,
+        )
+
+        def do_capture():
+            try:
+                run_capture(cfg, camera)
+            except Exception as exc:
+                import logging
+                logging.getLogger("web.actions").error("Capture failed: %s", exc)
+
+        background_tasks.add_task(do_capture)
+        return app.state.redirect_with_flash("/", "Capture triggered - check Snapshots in a moment.")
+
+    @app.post("/actions/timelapse")
+    async def action_timelapse(request: Request, background_tasks: BackgroundTasks):
+        from datetime import date
+        from dotenv import dotenv_values
+        import os
+        import re as _re2
+
+        form = await request.form()
+        date_str = form.get("date", "") or date.today().isoformat()
+        if not _re2.fullmatch(r'\d{4}-\d{2}-\d{2}', date_str):
+            date_str = date.today().isoformat()
+
+        env_vals = dotenv_values(str(env_path))
+        for k, v in env_vals.items():
+            os.environ.setdefault(k, v or "")
+
+        try:
+            from src.config import Config
+            cfg = Config.from_env()
+        except Exception as exc:
+            return app.state.redirect_with_flash("/videos", f"Config error: {exc}", "error")
+
+        day_dir = snapshot_dir / date_str
+        snaps = collect_snapshots(day_dir, include_night=cfg.timelapse_include_night)
+        output = timelapse_dir / f"timelapse_{date_str}.mp4"
+
+        def do_build():
+            try:
+                build_timelapse(
+                    snaps, output, fps=cfg.timelapse_fps,
+                    align=cfg.timelapse_align, stabilize=cfg.timelapse_stabilize,
+                    stabilize_crop=cfg.timelapse_stabilize_crop,
+                    stabilize_smoothing=cfg.timelapse_stabilize_smoothing,
+                    stabilize_shakiness=cfg.timelapse_stabilize_shakiness,
+                    subtitles=cfg.timelapse_subtitles,
+                    subtitle_every=cfg.timelapse_subtitle_every,
+                    burnin=cfg.timelapse_burnin,
+                    burnin_every_minutes=cfg.timelapse_burnin_every,
+                )
+            except Exception as exc:
+                import logging
+                logging.getLogger("web.actions").error("Timelapse build failed: %s", exc)
+
+        background_tasks.add_task(do_build)
+        return app.state.redirect_with_flash("/videos", f"Building timelapse for {date_str} - check Videos in a moment.")
+
+    @app.post("/actions/timelapse/permanent")
+    async def action_timelapse_permanent(request: Request, background_tasks: BackgroundTasks):
+        from datetime import datetime
+        from dotenv import dotenv_values
+        import os
+
+        env_vals = dotenv_values(str(env_path))
+        for k, v in env_vals.items():
+            os.environ.setdefault(k, v or "")
+
+        try:
+            from src.config import Config
+            cfg = Config.from_env()
+        except Exception as exc:
+            return app.state.redirect_with_flash("/videos", f"Config error: {exc}", "error")
+
+        all_snaps: list[Path] = []
+        if snapshot_dir.exists():
+            for day_dir in sorted(snapshot_dir.iterdir()):
+                if day_dir.is_dir():
+                    all_snaps.extend(collect_snapshots(day_dir, include_night=cfg.timelapse_include_night))
+
+        perm_dir = timelapse_dir / "permanent"
+        perm_dir.mkdir(exist_ok=True)
+        ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output = perm_dir / f"timelapse_permanent_{ts}.mp4"
+
+        def do_build():
+            try:
+                build_timelapse(
+                    all_snaps, output, fps=cfg.timelapse_fps,
+                    align=cfg.timelapse_align, stabilize=cfg.timelapse_stabilize,
+                    stabilize_crop=cfg.timelapse_stabilize_crop,
+                    stabilize_smoothing=cfg.timelapse_stabilize_smoothing,
+                    stabilize_shakiness=cfg.timelapse_stabilize_shakiness,
+                    subtitles=cfg.timelapse_subtitles,
+                    subtitle_every=cfg.timelapse_subtitle_every,
+                    burnin=cfg.timelapse_burnin,
+                    burnin_every_minutes=cfg.timelapse_burnin_every,
+                )
+            except Exception as exc:
+                import logging
+                logging.getLogger("web.actions").error("Permanent timelapse build failed: %s", exc)
+
+        background_tasks.add_task(do_build)
+        return app.state.redirect_with_flash("/videos", "Building permanent timelapse - this may take several minutes.")
 
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
