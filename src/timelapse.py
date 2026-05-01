@@ -39,17 +39,22 @@ def _srt_timestamp(td: timedelta) -> str:
     return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
 
 
-def _write_srt(snapshots: list[Path], fps: int) -> str:
+def _write_srt(snapshots: list[Path], fps: int, every: int = 1) -> str:
     frame_duration = timedelta(seconds=1 / fps)
+    index = 1
     with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False, encoding="utf-8") as f:
         for i, snap in enumerate(snapshots):
+            if i % every != 0:
+                continue
             start = frame_duration * i
-            end = frame_duration * (i + 1)
+            # subtitle spans until the next labelled frame or end of current frame
+            end = frame_duration * min(i + every, len(snapshots))
             dt = _parse_snapshot_dt(snap)
             label = dt.strftime("%Y-%m-%d %H:%M:%S") if dt else snap.stem
-            f.write(f"{i + 1}\n")
+            f.write(f"{index}\n")
             f.write(f"{_srt_timestamp(start)} --> {_srt_timestamp(end)}\n")
             f.write(f"{label}\n\n")
+            index += 1
         return f.name
 
 
@@ -69,7 +74,14 @@ def _run(cmd: list[str], label: str) -> bool:
     return True
 
 
-def build_timelapse(snapshots: list[Path], output: Path, fps: int, stabilize: bool = False) -> None:
+def build_timelapse(
+    snapshots: list[Path],
+    output: Path,
+    fps: int,
+    stabilize: bool = False,
+    subtitles: bool = True,
+    subtitle_every: int = 1,
+) -> None:
     if not snapshots:
         log.warning("No snapshots available, skipping timelapse build")
         return
@@ -77,7 +89,7 @@ def build_timelapse(snapshots: list[Path], output: Path, fps: int, stabilize: bo
     output.parent.mkdir(parents=True, exist_ok=True)
     tmp_output = output.with_suffix(".tmp.mp4")
     list_file = _write_concat_list(snapshots, fps)
-    srt_file = _write_srt(snapshots, fps)
+    srt_file = _write_srt(snapshots, fps, every=subtitle_every) if subtitles else None
 
     try:
         if stabilize:
@@ -86,20 +98,20 @@ def build_timelapse(snapshots: list[Path], output: Path, fps: int, stabilize: bo
             _build_simple(list_file, srt_file, tmp_output, output)
     finally:
         Path(list_file).unlink(missing_ok=True)
-        Path(srt_file).unlink(missing_ok=True)
+        if srt_file:
+            Path(srt_file).unlink(missing_ok=True)
 
 
-def _build_simple(list_file: str, srt_file: str, tmp_output: Path, output: Path) -> None:
-    ok = _run([
-        "ffmpeg", "-y",
-        "-f", "concat", "-safe", "0", "-i", list_file,
-        "-i", srt_file,
-        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        "-c:s", "mov_text",
-        "-map", "0:v", "-map", "1:s",
-        str(tmp_output),
-    ], "ffmpeg")
+def _build_simple(list_file: str, srt_file: str | None, tmp_output: Path, output: Path) -> None:
+    cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
+    if srt_file:
+        cmd += ["-i", srt_file]
+    cmd += ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p"]
+    if srt_file:
+        cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
+    cmd.append(str(tmp_output))
+
+    ok = _run(cmd, "ffmpeg")
     if ok:
         tmp_output.replace(output)
         log.info("Timelapse saved: %s", output)
@@ -107,7 +119,7 @@ def _build_simple(list_file: str, srt_file: str, tmp_output: Path, output: Path)
         tmp_output.unlink(missing_ok=True)
 
 
-def _build_stabilized(list_file: str, srt_file: str, tmp_output: Path, output: Path) -> None:
+def _build_stabilized(list_file: str, srt_file: str | None, tmp_output: Path, output: Path) -> None:
     transforms = tmp_output.with_suffix(".trf")
     try:
         # Pass 1: analyze motion
@@ -122,20 +134,22 @@ def _build_stabilized(list_file: str, srt_file: str, tmp_output: Path, output: P
             _build_simple(list_file, srt_file, tmp_output, output)
             return
 
-        # Pass 2: apply stabilization and embed subtitles
-        ok = _run([
-            "ffmpeg", "-y",
-            "-f", "concat", "-safe", "0", "-i", list_file,
-            "-i", srt_file,
+        # Pass 2: apply stabilization and optionally embed subtitles
+        cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
+        if srt_file:
+            cmd += ["-i", srt_file]
+        cmd += [
             "-vf", (
                 f"vidstabtransform=input={transforms}:smoothing=30:crop=black,"
                 "scale=trunc(iw/2)*2:trunc(ih/2)*2"
             ),
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-c:s", "mov_text",
-            "-map", "0:v", "-map", "1:s",
-            str(tmp_output),
-        ], "vidstabtransform")
+        ]
+        if srt_file:
+            cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
+        cmd.append(str(tmp_output))
+
+        ok = _run(cmd, "vidstabtransform")
         if ok:
             tmp_output.replace(output)
             log.info("Stabilized timelapse saved: %s", output)

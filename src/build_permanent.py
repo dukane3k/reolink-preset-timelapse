@@ -28,7 +28,7 @@ def build_permanent(cfg: Config, now: datetime | None = None) -> Path:
     permanent_dir = Path(cfg.timelapse_dir) / "permanent"
     output = permanent_dir / f"timelapse_permanent_{timestamp}.mp4"
 
-    build_timelapse(all_snapshots, output, fps=cfg.timelapse_fps, stabilize=cfg.timelapse_stabilize)
+    build_timelapse(all_snapshots, output, fps=cfg.timelapse_fps, stabilize=cfg.timelapse_stabilize, subtitles=cfg.timelapse_subtitles, subtitle_every=cfg.timelapse_subtitle_every)
     return output
 
 

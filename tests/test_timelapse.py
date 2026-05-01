@@ -75,6 +75,42 @@ def test_write_srt_contains_timestamps(tmp_path):
     assert "2026-04-30 10:30:00" in content
 
 
+def test_write_srt_skips_frames(tmp_path):
+    names = [
+        "garden_2026-04-30_10-00-00_day.jpg",
+        "garden_2026-04-30_10-30-00_day.jpg",
+        "garden_2026-04-30_11-00-00_day.jpg",
+        "garden_2026-04-30_11-30-00_day.jpg",
+    ]
+    snapshots = _make_snapshots(tmp_path, names)
+    srt_path = _write_srt(snapshots, fps=24, every=2)
+    content = Path(srt_path).read_text()
+    Path(srt_path).unlink()
+    assert "2026-04-30 10:00:00" in content
+    assert "2026-04-30 10:30:00" not in content
+    assert "2026-04-30 11:00:00" in content
+    assert "2026-04-30 11:30:00" not in content
+
+
+def test_build_timelapse_no_subtitles_omits_srt(tmp_path):
+    names = ["garden_2026-04-30_10-00-00_day.jpg"]
+    snapshots = _make_snapshots(tmp_path, names)
+    output = tmp_path / "timelapse_2026-04-30.mp4"
+
+    def mock_ffmpeg_success(cmd, **kwargs):
+        tmp_output = output.with_suffix(".tmp.mp4")
+        tmp_output.write_bytes(b"fake video")
+        return MagicMock(returncode=0)
+
+    with patch("src.timelapse.subprocess.run") as mock_run:
+        mock_run.side_effect = mock_ffmpeg_success
+        build_timelapse(snapshots, output, fps=24, subtitles=False)
+
+    cmd = mock_run.call_args[0][0]
+    assert "mov_text" not in cmd
+    assert "srt" not in " ".join(cmd)
+
+
 def test_build_timelapse_calls_ffmpeg(tmp_path):
     names = ["garden_2026-04-30_10-00-00_day.jpg"]
     snapshots = _make_snapshots(tmp_path, names)

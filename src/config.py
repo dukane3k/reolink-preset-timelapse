@@ -61,6 +61,8 @@ class Config:
     timelapse_archive_every: int
     timelapse_retain_all: bool
     timelapse_stabilize: bool
+    timelapse_subtitles: bool
+    timelapse_subtitle_every: int
 
     @classmethod
     def from_env(cls) -> Config:
@@ -87,4 +89,6 @@ class Config:
             timelapse_archive_every=_int("TIMELAPSE_ARCHIVE_EVERY", 7),
             timelapse_retain_all=_bool("TIMELAPSE_RETAIN_ALL", False),
             timelapse_stabilize=_bool("TIMELAPSE_STABILIZE", True),
+            timelapse_subtitles=_bool("TIMELAPSE_SUBTITLES", True),
+            timelapse_subtitle_every=_int("TIMELAPSE_SUBTITLE_EVERY", 1),
         )
