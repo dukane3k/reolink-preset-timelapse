@@ -1,6 +1,7 @@
 from __future__ import annotations
 import logging
 import re
+import shutil
 import subprocess
 import tempfile
 from datetime import datetime, timedelta
@@ -159,6 +160,7 @@ def build_timelapse(
     snapshots: list[Path],
     output: Path,
     fps: int,
+    align: bool = False,
     stabilize: bool = False,
     stabilize_crop: int = 5,
     stabilize_smoothing: int = 5,
@@ -173,22 +175,34 @@ def build_timelapse(
         return
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    tmp_output = output.with_suffix(".tmp.mp4")
-    list_file = _write_concat_list(snapshots, fps)
-    srt_file = _write_srt(snapshots, fps, every=subtitle_every) if subtitles else None
-    ass_file = _write_burnin_ass(snapshots, fps, every_minutes=burnin_every_minutes) if burnin else None
 
+    align_dir = None
     try:
-        if stabilize:
-            _build_stabilized(list_file, srt_file, ass_file, tmp_output, output, stabilize_crop, stabilize_smoothing, stabilize_shakiness)
-        else:
-            _build_simple(list_file, srt_file, ass_file, tmp_output, output)
+        if align:
+            from src.alignment import align_snapshots
+            align_dir = Path(tempfile.mkdtemp(prefix="timelapse_align_"))
+            log.info("Aligning %d frames to reference...", len(snapshots))
+            snapshots = align_snapshots(snapshots, align_dir)
+
+        tmp_output = output.with_suffix(".tmp.mp4")
+        list_file = _write_concat_list(snapshots, fps)
+        srt_file = _write_srt(snapshots, fps, every=subtitle_every) if subtitles else None
+        ass_file = _write_burnin_ass(snapshots, fps, every_minutes=burnin_every_minutes) if burnin else None
+
+        try:
+            if stabilize:
+                _build_stabilized(list_file, srt_file, ass_file, tmp_output, output, stabilize_crop, stabilize_smoothing, stabilize_shakiness)
+            else:
+                _build_simple(list_file, srt_file, ass_file, tmp_output, output)
+        finally:
+            Path(list_file).unlink(missing_ok=True)
+            if srt_file:
+                Path(srt_file).unlink(missing_ok=True)
+            if ass_file:
+                Path(ass_file).unlink(missing_ok=True)
     finally:
-        Path(list_file).unlink(missing_ok=True)
-        if srt_file:
-            Path(srt_file).unlink(missing_ok=True)
-        if ass_file:
-            Path(ass_file).unlink(missing_ok=True)
+        if align_dir and align_dir.exists():
+            shutil.rmtree(align_dir, ignore_errors=True)
 
 
 def _video_filters(ass_file: str | None) -> str:

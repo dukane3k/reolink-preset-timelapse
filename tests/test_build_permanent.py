@@ -29,6 +29,7 @@ def _cfg(tmp_path):
         timelapse_retention_days=7,
         timelapse_archive_every=7,
         timelapse_retain_all=False,
+        timelapse_align=False,
         timelapse_stabilize=False,
         timelapse_stabilize_crop=5,
         timelapse_stabilize_smoothing=5,

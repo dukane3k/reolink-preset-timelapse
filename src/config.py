@@ -60,6 +60,7 @@ class Config:
     timelapse_retention_days: int
     timelapse_archive_every: int
     timelapse_retain_all: bool
+    timelapse_align: bool
     timelapse_stabilize: bool
     timelapse_stabilize_crop: int
     timelapse_stabilize_smoothing: int
@@ -93,7 +94,8 @@ class Config:
             timelapse_retention_days=_int("TIMELAPSE_RETENTION_DAYS", 7),
             timelapse_archive_every=_int("TIMELAPSE_ARCHIVE_EVERY", 7),
             timelapse_retain_all=_bool("TIMELAPSE_RETAIN_ALL", False),
-            timelapse_stabilize=_bool("TIMELAPSE_STABILIZE", True),
+            timelapse_align=_bool("TIMELAPSE_ALIGN", True),
+            timelapse_stabilize=_bool("TIMELAPSE_STABILIZE", False),
             timelapse_stabilize_crop=_int("TIMELAPSE_STABILIZE_CROP", 5),
             timelapse_stabilize_smoothing=_int("TIMELAPSE_STABILIZE_SMOOTHING", 5),
             timelapse_stabilize_shakiness=_int("TIMELAPSE_STABILIZE_SHAKINESS", 5),
