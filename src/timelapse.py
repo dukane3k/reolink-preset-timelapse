@@ -1,10 +1,14 @@
 from __future__ import annotations
 import logging
+import re
 import subprocess
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+_TIMESTAMP_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})")
 
 
 def collect_snapshots(snapshot_dir: Path, include_night: bool) -> list[Path]:
@@ -14,6 +18,39 @@ def collect_snapshots(snapshot_dir: Path, include_night: bool) -> list[Path]:
     if not include_night:
         files = [f for f in files if "_night" not in f.name]
     return files
+
+
+def _parse_snapshot_dt(path: Path) -> datetime | None:
+    m = _TIMESTAMP_RE.search(path.stem)
+    if not m:
+        return None
+    try:
+        return datetime.strptime(f"{m.group(1)} {m.group(2)}", "%Y-%m-%d %H-%M-%S")
+    except ValueError:
+        return None
+
+
+def _srt_timestamp(td: timedelta) -> str:
+    total = int(td.total_seconds() * 1000)
+    ms = total % 1000
+    s = (total // 1000) % 60
+    m = (total // 60000) % 60
+    h = total // 3600000
+    return f"{h:02d}:{m:02d}:{s:02d},{ms:03d}"
+
+
+def _write_srt(snapshots: list[Path], fps: int) -> str:
+    frame_duration = timedelta(seconds=1 / fps)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".srt", delete=False, encoding="utf-8") as f:
+        for i, snap in enumerate(snapshots):
+            start = frame_duration * i
+            end = frame_duration * (i + 1)
+            dt = _parse_snapshot_dt(snap)
+            label = dt.strftime("%Y-%m-%d %H:%M:%S") if dt else snap.stem
+            f.write(f"{i + 1}\n")
+            f.write(f"{_srt_timestamp(start)} --> {_srt_timestamp(end)}\n")
+            f.write(f"{label}\n\n")
+        return f.name
 
 
 def _write_concat_list(snapshots: list[Path], fps: int) -> str:
@@ -40,22 +77,27 @@ def build_timelapse(snapshots: list[Path], output: Path, fps: int, stabilize: bo
     output.parent.mkdir(parents=True, exist_ok=True)
     tmp_output = output.with_suffix(".tmp.mp4")
     list_file = _write_concat_list(snapshots, fps)
+    srt_file = _write_srt(snapshots, fps)
 
     try:
         if stabilize:
-            _build_stabilized(list_file, tmp_output, output)
+            _build_stabilized(list_file, srt_file, tmp_output, output)
         else:
-            _build_simple(list_file, tmp_output, output)
+            _build_simple(list_file, srt_file, tmp_output, output)
     finally:
         Path(list_file).unlink(missing_ok=True)
+        Path(srt_file).unlink(missing_ok=True)
 
 
-def _build_simple(list_file: str, tmp_output: Path, output: Path) -> None:
+def _build_simple(list_file: str, srt_file: str, tmp_output: Path, output: Path) -> None:
     ok = _run([
         "ffmpeg", "-y",
         "-f", "concat", "-safe", "0", "-i", list_file,
+        "-i", srt_file,
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
         "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:s", "mov_text",
+        "-map", "0:v", "-map", "1:s",
         str(tmp_output),
     ], "ffmpeg")
     if ok:
@@ -65,7 +107,7 @@ def _build_simple(list_file: str, tmp_output: Path, output: Path) -> None:
         tmp_output.unlink(missing_ok=True)
 
 
-def _build_stabilized(list_file: str, tmp_output: Path, output: Path) -> None:
+def _build_stabilized(list_file: str, srt_file: str, tmp_output: Path, output: Path) -> None:
     transforms = tmp_output.with_suffix(".trf")
     try:
         # Pass 1: analyze motion
@@ -77,18 +119,21 @@ def _build_stabilized(list_file: str, tmp_output: Path, output: Path) -> None:
         ], "vidstabdetect")
         if not ok:
             log.warning("Stabilization analysis failed, falling back to unstabilized")
-            _build_simple(list_file, tmp_output, output)
+            _build_simple(list_file, srt_file, tmp_output, output)
             return
 
-        # Pass 2: apply stabilization
+        # Pass 2: apply stabilization and embed subtitles
         ok = _run([
             "ffmpeg", "-y",
             "-f", "concat", "-safe", "0", "-i", list_file,
+            "-i", srt_file,
             "-vf", (
                 f"vidstabtransform=input={transforms}:smoothing=30:crop=black,"
                 "scale=trunc(iw/2)*2:trunc(ih/2)*2"
             ),
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:s", "mov_text",
+            "-map", "0:v", "-map", "1:s",
             str(tmp_output),
         ], "vidstabtransform")
         if ok:
