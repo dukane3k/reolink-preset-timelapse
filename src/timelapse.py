@@ -103,7 +103,8 @@ def _write_burnin_ass(
             f.write(header)
             return f.name
 
-    lines = []
+    # Collect emit frames first so we can cap each entry at the next one's start
+    emit_frames: list[tuple[int, str]] = []
     last_bucket = -1
     for i, (snap, dt) in enumerate(zip(snapshots, dts)):
         if dt is None:
@@ -113,14 +114,22 @@ def _write_burnin_ass(
         if bucket == last_bucket:
             continue
         last_bucket = bucket
-
         label = dt.strftime("%Y-%m-%d %H:%M")
+        emit_frames.append((i, label))
+
+    lines = []
+    for idx, (i, label) in enumerate(emit_frames):
         start_sec = i * frame_duration
-        end_sec = start_sec + display_seconds
+        # End no later than the next entry's start to prevent stacking
+        if idx + 1 < len(emit_frames):
+            next_start_sec = emit_frames[idx + 1][0] * frame_duration
+            end_sec = min(start_sec + display_seconds, next_start_sec)
+        else:
+            end_sec = start_sec + display_seconds
+        fade_out_ms = min(fade_ms, int((end_sec - start_sec) * 1000))
         start = _ass_timestamp(timedelta(seconds=start_sec))
         end = _ass_timestamp(timedelta(seconds=end_sec))
-        # \fad(fade_in_ms, fade_out_ms) — instant appear, fade out
-        text = f"{{\\fad(0,{fade_ms})}}{label}"
+        text = f"{{\\fad(0,{fade_out_ms})}}{label}"
         lines.append(f"Dialogue: 0,{start},{end},Burnin,,0,0,0,,{text}")
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".ass", delete=False, encoding="utf-8") as f:
