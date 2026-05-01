@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Snapshots — Timelapse{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+  <label for="date-select" style="color:#aaa;font-size:0.875rem;">Date:</label>
+  <select id="date-select" onchange="location='?date='+this.value"
+          style="background:#1e1e2e;border:1px solid #333;color:#fff;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
+    {% for d in all_dates %}
+      <option value="{{ d }}" {% if d == selected_date %}selected{% endif %}>{{ d }}</option>
+    {% endfor %}
+  </select>
+  {% if snaps %}
+    <span style="color:#555;font-size:0.8rem;">{{ snaps|length }} snapshots</span>
+  {% endif %}
+</div>
+
+{% if not all_dates %}
+  <p class="empty-state">No snapshots found.</p>
+{% elif snaps %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+    {% for snap in snaps %}
+      <a href="/media/snapshots/{{ selected_date }}/{{ snap }}" target="_blank"
+         title="{{ snap }}" style="display:block;">
+        <img src="/media/snapshots/{{ selected_date }}/{{ snap }}"
+             alt="{{ snap }}"
+             style="width:100%;border-radius:4px;aspect-ratio:4/3;object-fit:cover;display:block;">
+        <p style="color:#666;font-size:0.7rem;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {{ snap.split('_')[-1].replace('.jpg','') }}
+          · {{ snap.split('_')[2] | replace('-',':') }}
+        </p>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p class="empty-state">No snapshots for {{ selected_date }}.</p>
+{% endif %}
+{% endblock %}

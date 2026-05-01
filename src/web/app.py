@@ -99,6 +99,28 @@ def create_app(
             today_video=today_video,
         )
 
+    # --- Snapshots ---
+
+    @app.get("/snapshots", response_class=HTMLResponse)
+    def snapshots_page(request: Request, date: str = ""):
+        all_dates = sorted(
+            [d.name for d in snapshot_dir.iterdir() if d.is_dir()],
+            reverse=True,
+        ) if snapshot_dir.exists() else []
+
+        selected_date = date or (all_dates[0] if all_dates else "")
+        snaps: list[str] = []
+        if selected_date:
+            day_dir = snapshot_dir / selected_date
+            snaps = sorted(p.name for p in day_dir.glob("*.jpg")) if day_dir.exists() else []
+
+        return app.state.render(
+            "snapshots.html", request, "snapshots",
+            all_dates=all_dates,
+            selected_date=selected_date,
+            snaps=snaps,
+        )
+
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
     app.state.timelapse_dir = timelapse_dir

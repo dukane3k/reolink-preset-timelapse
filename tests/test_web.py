@@ -115,3 +115,29 @@ def test_dashboard_has_action_buttons(client):
     assert resp.status_code == 200
     assert b"/actions/capture" in resp.content
     assert b"/actions/timelapse" in resp.content
+
+
+def test_snapshots_page_lists_dates(client, dirs):
+    d = dirs["snap_dir"] / "2026-05-01"
+    d.mkdir()
+    (d / "Full_Garden_2026-05-01_10-00-00_day.jpg").write_bytes(b"x")
+    resp = client.get("/snapshots")
+    assert resp.status_code == 200
+    assert b"2026-05-01" in resp.content
+
+
+def test_snapshots_page_shows_thumbnails_for_date(client, dirs):
+    d = dirs["snap_dir"] / "2026-05-01"
+    d.mkdir()
+    (d / "Full_Garden_2026-05-01_10-00-00_day.jpg").write_bytes(b"x")
+    (d / "Full_Garden_2026-05-01_20-00-00_night.jpg").write_bytes(b"x")
+    resp = client.get("/snapshots?date=2026-05-01")
+    assert resp.status_code == 200
+    assert b"Full_Garden_2026-05-01_10-00-00_day.jpg" in resp.content
+    assert b"Full_Garden_2026-05-01_20-00-00_night.jpg" in resp.content
+
+
+def test_snapshots_page_empty_state(client):
+    resp = client.get("/snapshots")
+    assert resp.status_code == 200
+    assert b"No snapshots" in resp.content or b"no snapshots" in resp.content.lower()
