@@ -6,29 +6,35 @@
   <title>{% block title %}Timelapse{% endblock %}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0f0f1a; color: #e0e0e0; font-family: system-ui, sans-serif; min-height: 100vh; }
-    nav { background: #1a1a2e; padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 52px; border-bottom: 1px solid #2a2a4a; }
-    nav .brand { color: #7c9fff; font-weight: 700; font-size: 1rem; text-decoration: none; margin-right: 16px; }
-    nav a { color: #aaa; text-decoration: none; font-size: 0.9rem; padding: 4px 0; }
-    nav a.active, nav a:hover { color: #fff; border-bottom: 2px solid #7c9fff; }
-    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    body { background: #f5f4f0; color: #1a1a1a; font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+    nav { background: #fff; padding: 0 28px; display: flex; align-items: center; gap: 28px; height: 52px; border-bottom: 1px solid #e5e2dc; }
+    nav .brand { color: #1a1a1a; font-weight: 600; font-size: 14px; text-decoration: none; margin-right: 8px; display: flex; align-items: center; gap: 8px; }
+    nav a { color: #999; text-decoration: none; font-size: 13px; }
+    nav a.active, nav a:hover { color: #1a1a1a; font-weight: 500; border-bottom: none; }
+    main { padding: 28px; max-width: 1100px; margin: 0 auto; }
     .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 0.9rem; }
-    .flash.success { background: #1e3a1e; color: #7fff7f; border: 1px solid #2a6a2a; }
-    .flash.error { background: #3a1e1e; color: #ff9999; border: 1px solid #6a2a2a; }
-    .card { background: #1a1a2e; border-radius: 8px; padding: 16px; }
-    .card-label { color: #7c9fff; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
-    .btn { display: inline-block; padding: 8px 16px; border-radius: 5px; font-size: 0.875rem; cursor: pointer; border: none; text-decoration: none; }
-    .btn-primary { background: #2a4080; color: #fff; }
-    .btn-primary:hover { background: #3a50a0; }
-    .btn-secondary { background: #1e1e2e; color: #aaa; border: 1px solid #333; }
-    .btn-secondary:hover { background: #2a2a3e; color: #fff; }
-    .empty-state { color: #555; font-size: 0.9rem; padding: 32px 0; text-align: center; }
+    .flash.success { background: #f0faf0; color: #2a7a2a; border: 1px solid #c0e0c0; }
+    .flash.error { background: #fdf0f0; color: #cc3333; border: 1px solid #f0c0c0; }
+    .card { background: #fff; border: 1px solid #e5e2dc; border-radius: 8px; padding: 16px; }
+    .card-label { color: #aaa; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 5px; font-size: 0.875rem; cursor: pointer; border: none; text-decoration: none; font-weight: 500; }
+    .btn-primary { background: #1a1a1a; color: #fff; }
+    .btn-primary:hover { background: #333; }
+    .btn-secondary { background: #f0ede8; color: #555; border: 1px solid #e0ddd8; }
+    .btn-secondary:hover { background: #e8e5e0; color: #1a1a1a; }
+    .empty-state { color: #bbb; font-size: 0.9rem; padding: 32px 0; text-align: center; }
   </style>
   {% block head %}{% endblock %}
 </head>
 <body>
   <nav>
-    <a href="/" class="brand">📷 Timelapse</a>
+    <a href="/" class="brand">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      Timelapse
+    </a>
     <a href="/" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
     <a href="/snapshots" class="{% if active == 'snapshots' %}active{% endif %}">Snapshots</a>
     <a href="/videos" class="{% if active == 'videos' %}active{% endif %}">Videos</a>
