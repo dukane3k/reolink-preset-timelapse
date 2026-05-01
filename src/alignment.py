@@ -7,7 +7,8 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-_MIN_MATCH_COUNT = 10
+# ECC convergence criteria: max 50 iterations, epsilon 1e-4
+_ECC_CRITERIA = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 1e-4)
 
 
 def _align_to_reference(
@@ -15,39 +16,43 @@ def _align_to_reference(
     reference_img: np.ndarray,
     target_path: Path,
 ) -> np.ndarray:
-    """Return target image warped to align with reference. Falls back to unaligned on failure."""
+    """Return target image translated to align with reference using ECC. Falls back to unaligned on failure."""
     target_img = cv2.imread(str(target_path))
     if target_img is None:
         log.warning("Could not read %s, using reference frame", target_path)
         return reference_img.copy()
     target_gray = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
 
-    detector = cv2.ORB_create(nfeatures=2000)
-    kp_ref, desc_ref = detector.detectAndCompute(reference_gray, None)
-    kp_tgt, desc_tgt = detector.detectAndCompute(target_gray, None)
+    # Translation-only warp: 2x3 identity matrix as starting point
+    warp_matrix = np.eye(2, 3, dtype=np.float32)
 
-    if desc_ref is None or desc_tgt is None or len(kp_ref) < _MIN_MATCH_COUNT or len(kp_tgt) < _MIN_MATCH_COUNT:
-        log.warning("Not enough features in %s, using unaligned", target_path.name)
-        return target_img
-
-    matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=False)
-    matches = matcher.knnMatch(desc_ref, desc_tgt, k=2)
-    good = [m for m, n in matches if m.distance < 0.75 * n.distance]
-
-    if len(good) < _MIN_MATCH_COUNT:
-        log.warning("Too few good matches (%d) for %s, using unaligned", len(good), target_path.name)
-        return target_img
-
-    src_pts = np.float32([kp_ref[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
-    dst_pts = np.float32([kp_tgt[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
-
-    H, _ = cv2.findHomography(dst_pts, src_pts, cv2.RANSAC, 5.0)
-    if H is None:
-        log.warning("Homography failed for %s, using unaligned", target_path.name)
+    try:
+        _, warp_matrix = cv2.findTransformECC(
+            reference_gray,
+            target_gray,
+            warp_matrix,
+            cv2.MOTION_TRANSLATION,
+            _ECC_CRITERIA,
+        )
+    except cv2.error as e:
+        log.warning("ECC failed for %s (%s), using unaligned", target_path.name, e)
         return target_img
 
     h, w = reference_img.shape[:2]
-    return cv2.warpPerspective(target_img, H, (w, h), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+    aligned = cv2.warpAffine(
+        target_img,
+        warp_matrix,
+        (w, h),
+        flags=cv2.INTER_LINEAR + cv2.WARP_INVERSE_MAP,
+        borderMode=cv2.BORDER_CONSTANT,
+        borderValue=0,
+    )
+
+    dx = abs(warp_matrix[0, 2])
+    dy = abs(warp_matrix[1, 2])
+    log.debug("ECC shift for %s: dx=%.1f dy=%.1f", target_path.name, dx, dy)
+
+    return aligned
 
 
 def _edge_crop(img: np.ndarray, percent: int) -> tuple[int, int, int, int]:
@@ -62,7 +67,7 @@ def _edge_crop(img: np.ndarray, percent: int) -> tuple[int, int, int, int]:
 
 def align_snapshots(snapshots: list[Path], output_dir: Path, crop_percent: int = 5) -> list[Path]:
     """
-    Align all snapshots to the first frame using ORB feature matching + homography.
+    Align all snapshots to the first frame using ECC translation estimation.
     Crops crop_percent% from each edge to remove warp border artifacts.
     Writes aligned JPEGs to output_dir and returns their paths in order.
     """
