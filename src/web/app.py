@@ -138,15 +138,14 @@ def create_app(
             reverse=True,
         ) if perm_dir.exists() else []
 
-        selected = video or (daily[0] if daily else (permanent[0] if permanent else ""))
-        is_permanent = selected in permanent
+        all_videos = set(daily) | set(permanent)
+        selected = video if video in all_videos else (daily[0] if daily else (permanent[0] if permanent else ""))
 
         return app.state.render(
             "videos.html", request, "videos",
             daily=daily,
             permanent=permanent,
             selected=selected,
-            is_permanent=is_permanent,
         )
 
     # Store for use by route functions defined in later tasks
