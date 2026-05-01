@@ -159,6 +159,16 @@ def create_app(
         "TIMELAPSE_SUBTITLE_EVERY", "TIMELAPSE_BURNIN_EVERY",
     }
     _FLOAT_FIELDS = {"LATITUDE", "LONGITUDE"}
+    _ALL_FIELDS = _INT_FIELDS | _FLOAT_FIELDS | {
+        "CAMERA_IP", "CAMERA_USERNAME", "CAMERA_PASSWORD",
+        "CAMERA_PRESET_NAME", "CAMERA_HOME_PRESET",
+        "SNAPSHOT_24_7",
+        "TIMEZONE",
+        "TIMELAPSE_INCLUDE_NIGHT",
+        "TIMELAPSE_ALIGN", "TIMELAPSE_STABILIZE",
+        "TIMELAPSE_SUBTITLES", "TIMELAPSE_BURNIN",
+        "TIMELAPSE_RETAIN_ALL",
+    }
 
     from src.web.env_editor import read_env, write_env
 
@@ -173,7 +183,7 @@ def create_app(
     @app.post("/settings", response_class=HTMLResponse)
     async def settings_post(request: Request):
         form = await request.form()
-        data = dict(form)
+        data = {k: v for k, v in dict(form).items() if k in _ALL_FIELDS}
         errors: dict[str, str] = {}
 
         for key, value in data.items():
