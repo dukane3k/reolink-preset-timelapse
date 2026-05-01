@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Timelapse{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f1a; color: #e0e0e0; font-family: system-ui, sans-serif; min-height: 100vh; }
+    nav { background: #1a1a2e; padding: 0 24px; display: flex; align-items: center; gap: 24px; height: 52px; border-bottom: 1px solid #2a2a4a; }
+    nav .brand { color: #7c9fff; font-weight: 700; font-size: 1rem; text-decoration: none; margin-right: 16px; }
+    nav a { color: #aaa; text-decoration: none; font-size: 0.9rem; padding: 4px 0; }
+    nav a.active, nav a:hover { color: #fff; border-bottom: 2px solid #7c9fff; }
+    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 0.9rem; }
+    .flash.success { background: #1e3a1e; color: #7fff7f; border: 1px solid #2a6a2a; }
+    .flash.error { background: #3a1e1e; color: #ff9999; border: 1px solid #6a2a2a; }
+    .card { background: #1a1a2e; border-radius: 8px; padding: 16px; }
+    .card-label { color: #7c9fff; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+    .btn { display: inline-block; padding: 8px 16px; border-radius: 5px; font-size: 0.875rem; cursor: pointer; border: none; text-decoration: none; }
+    .btn-primary { background: #2a4080; color: #fff; }
+    .btn-primary:hover { background: #3a50a0; }
+    .btn-secondary { background: #1e1e2e; color: #aaa; border: 1px solid #333; }
+    .btn-secondary:hover { background: #2a2a3e; color: #fff; }
+    .empty-state { color: #555; font-size: 0.9rem; padding: 32px 0; text-align: center; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav>
+    <a href="/" class="brand">📷 Timelapse</a>
+    <a href="/" class="{% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="/snapshots" class="{% if active == 'snapshots' %}active{% endif %}">Snapshots</a>
+    <a href="/videos" class="{% if active == 'videos' %}active{% endif %}">Videos</a>
+    <a href="/settings" class="{% if active == 'settings' %}active{% endif %}">Settings</a>
+  </nav>
+  <main>
+    {% if flash_message %}
+      <div class="flash {{ flash_type }}">{{ flash_message }}</div>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
