@@ -212,7 +212,14 @@ def create_app(
             )
 
         write_env(env_path, data)
-        return app.state.redirect_with_flash("/settings", "Settings saved. Restart the timelapse container to apply.")
+        import docker as docker_sdk
+        try:
+            dc = docker_sdk.from_env()
+            dc.containers.get("reolink-preset-timelapse").restart()
+            msg = "Settings saved - timelapse container restarted."
+        except Exception:
+            msg = "Settings saved. Restart the timelapse container to apply."
+        return app.state.redirect_with_flash("/settings", msg)
 
     # --- Actions ---
 

@@ -20,6 +20,7 @@ services:
       - /data/timelapse/snapshots:/data/snapshots
       - /data/timelapse/timelapse:/data/timelapse
       - /data/timelapse/.env:/app/.env
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - TZ=America/Chicago
       - SNAPSHOT_DIR=/data/snapshots
