@@ -15,6 +15,7 @@
     .flash { padding: 10px 16px; border-radius: 6px; margin-bottom: 16px; font-size: 0.9rem; }
     .flash.success { background: #f0faf0; color: #2a7a2a; border: 1px solid #c0e0c0; }
     .flash.error { background: #fdf0f0; color: #cc3333; border: 1px solid #f0c0c0; }
+    .flash.info { background: #f5f4f0; color: #888; border: 1px solid #e5e2dc; }
     .card { background: #fff; border: 1px solid #e5e2dc; border-radius: 8px; padding: 16px; }
     .card-label { color: #aaa; font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 10px; }
     .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 5px; font-size: 0.875rem; cursor: pointer; border: none; text-decoration: none; font-weight: 500; }
@@ -46,5 +47,84 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script>
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var watch = params.get('watch');
+  var type  = params.get('type');
+  var since = params.get('since') || '0';
+  if (!watch || !type) return;
+
+  // Strip watch params from URL so refresh doesn't re-poll
+  params.delete('watch');
+  params.delete('type');
+  params.delete('since');
+  var clean = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+  history.replaceState(null, '', clean);
+
+  var POLL_MS   = 2000;
+  var TIMEOUT_S = 300;
+  var start     = Date.now();
+  var timer     = null;
+
+  function showBanner(cls, html) {
+    var div = document.createElement('div');
+    div.className = 'flash ' + cls;
+    div.innerHTML = html;
+    var main = document.querySelector('main');
+    main.parentNode.insertBefore(div, main);
+  }
+
+  function successBanner(file) {
+    if (type === 'snapshot') {
+      showBanner('success',
+        'Snapshot captured — <a href="/snapshots?date=' + encodeURIComponent(watch) + '">View snapshots →</a>'
+      );
+    } else {
+      showBanner('success',
+        'Timelapse is ready — <a href="/videos?video=' + encodeURIComponent(file) + '">View it →</a>'
+      );
+    }
+  }
+
+  function timeoutBanner() {
+    if (type === 'snapshot') {
+      showBanner('info',
+        'Capture is taking longer than expected — <a href="/snapshots">Go to Snapshots →</a>'
+      );
+    } else {
+      showBanner('info',
+        'Build is taking longer than expected — <a href="/videos">Go to Videos →</a>'
+      );
+    }
+  }
+
+  function poll() {
+    if ((Date.now() - start) / 1000 >= TIMEOUT_S) {
+      timeoutBanner();
+      return;
+    }
+    var url = '/api/status?watch=' + encodeURIComponent(watch) +
+              '&type=' + encodeURIComponent(type) +
+              '&since=' + encodeURIComponent(since);
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ready) {
+          successBanner(data.file || watch);
+        } else {
+          timer = setTimeout(poll, POLL_MS);
+        }
+      })
+      .catch(function () {
+        timer = setTimeout(poll, POLL_MS);
+      });
+  }
+
+  window.addEventListener('pagehide', function () { clearTimeout(timer); });
+
+  poll();
+})();
+</script>
 </body>
 </html>
