@@ -13,7 +13,10 @@ def read_env(path: Path) -> dict[str, str]:
         if "=" not in stripped:
             continue
         key, _, value = stripped.partition("=")
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if (value.startswith('"') and value.endswith('"')) or \
+           (value.startswith("'") and value.endswith("'")):
+            value = value[1:-1]
         result[key.strip()] = value
     return result
 

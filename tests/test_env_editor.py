@@ -1,5 +1,4 @@
 from pathlib import Path
-import pytest
 from src.web.env_editor import read_env, write_env
 
 
@@ -64,3 +63,9 @@ def test_write_env_missing_file_creates_it(tmp_path):
     env = tmp_path / ".env"
     write_env(env, {"FOO": "bar"})
     assert read_env(env) == {"FOO": "bar"}
+
+
+def test_read_env_quoted_value_with_apostrophe(tmp_path):
+    env = tmp_path / ".env"
+    env.write_text('KEY="it\'s fine"\n')
+    assert read_env(env) == {"KEY": "it's fine"}
