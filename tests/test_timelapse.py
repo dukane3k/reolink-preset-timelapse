@@ -121,9 +121,9 @@ def test_write_burnin_ass_contains_timestamps(tmp_path):
     ass_path = _write_burnin_ass(snapshots, fps=24, every_minutes=30)
     content = Path(ass_path).read_text()
     Path(ass_path).unlink()
-    assert "04/30/2026 10:00" in content
-    assert "04/30/2026 10:30" in content
-    assert "04/30/2026 11:00" in content
+    assert "04/30/2026 10:00" in content.upper()
+    assert "04/30/2026 10:30" in content.upper()
+    assert "04/30/2026 11:00" in content.upper()
     assert "\\fad(0," in content
     assert "Burnin" in content
 
@@ -140,8 +140,8 @@ def test_write_burnin_ass_respects_interval(tmp_path):
     ass_path = _write_burnin_ass(snapshots, fps=24, every_minutes=30)
     content = Path(ass_path).read_text()
     Path(ass_path).unlink()
-    assert "04/30/2026 10:00" in content
-    assert "04/30/2026 10:30" in content
+    assert "04/30/2026 10:00" in content.upper()
+    assert "04/30/2026 10:30" in content.upper()
     assert "10:15" not in content
     assert "10:45" not in content
 

@@ -89,8 +89,9 @@ def _write_burnin_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
         "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        "Style: Burnin,Arial,36,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
-        "0,0,0,0,100,100,0,0,1,2,1,3,10,10,20,1\n\n"
+        # white text, no outline, soft drop shadow, bottom-right, letter spacing 3
+        "Style: Burnin,Liberation Sans,56,&H00FFFFFF,&H000000FF,&H00000000,&HAA000000,"
+        "0,0,0,0,100,100,3,0,0,0,3,3,10,10,20,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
@@ -129,7 +130,7 @@ def _write_burnin_ass(
         fade_out_ms = min(fade_ms, int((end_sec - start_sec) * 1000))
         start = _ass_timestamp(timedelta(seconds=start_sec))
         end = _ass_timestamp(timedelta(seconds=end_sec))
-        text = f"{{\\fad(0,{fade_out_ms})}}{label}"
+        text = f"{{\\fad(0,{fade_out_ms})}}{label.upper()}"
         lines.append(f"Dialogue: 0,{start},{end},Burnin,,0,0,0,,{text}")
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".ass", delete=False, encoding="utf-8") as f:
