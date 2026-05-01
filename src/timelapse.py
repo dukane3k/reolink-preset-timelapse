@@ -182,7 +182,7 @@ def build_timelapse(
             from src.alignment import align_snapshots
             align_dir = Path(tempfile.mkdtemp(prefix="timelapse_align_"))
             log.info("Aligning %d frames to reference...", len(snapshots))
-            snapshots = align_snapshots(snapshots, align_dir)
+            snapshots = align_snapshots(snapshots, align_dir, crop_percent=stabilize_crop)
 
         tmp_output = output.with_suffix(".tmp.mp4")
         list_file = _write_concat_list(snapshots, fps)
