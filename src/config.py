@@ -57,6 +57,8 @@ class Config:
     timelapse_dir: str
     camera_channel: int
     ptz_speed: int
+    timelapse_retention_days: int
+    timelapse_archive_every: int
 
     @classmethod
     def from_env(cls) -> Config:
@@ -79,4 +81,6 @@ class Config:
             timelapse_dir=_require("TIMELAPSE_DIR"),
             camera_channel=_int("CAMERA_CHANNEL", 0),
             ptz_speed=_int("PTZ_SPEED", 32),
+            timelapse_retention_days=_int("TIMELAPSE_RETENTION_DAYS", 7),
+            timelapse_archive_every=_int("TIMELAPSE_ARCHIVE_EVERY", 7),
         )

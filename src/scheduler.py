@@ -10,6 +10,7 @@ from src.camera import CameraClient, CameraError
 from src.capture import run_capture
 from src.lighting import get_lighting_label
 from src.timelapse import collect_snapshots, build_timelapse
+from src.retention import prune_timelapses
 
 logging.basicConfig(
     level=logging.INFO,
@@ -60,6 +61,12 @@ def run(cfg: Config) -> None:
         if now.date() != current_date:
             log.info("New day — finalizing timelapse for %s", current_date)
             _rebuild_timelapse(cfg, str(current_date))
+            prune_timelapses(
+                Path(cfg.timelapse_dir),
+                today=now.date(),
+                retention_days=cfg.timelapse_retention_days,
+                archive_every=cfg.timelapse_archive_every,
+            )
             current_date = now.date()
 
         # Skip night captures if not 24/7

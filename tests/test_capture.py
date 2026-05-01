@@ -26,6 +26,8 @@ def _cfg(tmp_path):
         timelapse_dir=str(tmp_path / "timelapse"),
         camera_channel=0,
         ptz_speed=32,
+        timelapse_retention_days=7,
+        timelapse_archive_every=7,
     )
 
 
