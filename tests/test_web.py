@@ -204,7 +204,8 @@ def test_action_capture_redirects(client, monkeypatch):
     resp = client.post("/actions/capture")
     assert called.get("yes")
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/"
+    assert resp.headers["location"].startswith("/")
+    assert "watch=" in resp.headers["location"]
 
 
 def test_action_timelapse_redirects(client, monkeypatch):
@@ -213,7 +214,7 @@ def test_action_timelapse_redirects(client, monkeypatch):
     monkeypatch.setattr("src.web.app.build_timelapse", fake_build)
     resp = client.post("/actions/timelapse")
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/videos"
+    assert resp.headers["location"].startswith("/videos")
 
 
 def test_action_permanent_timelapse_redirects(client, monkeypatch):
@@ -222,7 +223,7 @@ def test_action_permanent_timelapse_redirects(client, monkeypatch):
     monkeypatch.setattr("src.web.app.build_timelapse", fake_build)
     resp = client.post("/actions/timelapse/permanent")
     assert resp.status_code == 303
-    assert resp.headers["location"] == "/videos"
+    assert resp.headers["location"].startswith("/videos")
 
 
 def test_api_status_video_not_ready(client):
@@ -291,3 +292,38 @@ def test_api_status_rejects_invalid_snapshot_date(client):
     resp = client.get("/api/status?watch=../sneaky&type=snapshot&since=0")
     assert resp.status_code == 200
     assert resp.json() == {"ready": False}
+
+
+def test_action_capture_redirect_includes_watch(client, monkeypatch):
+    from datetime import date
+    import re
+    monkeypatch.setattr("src.web.app.run_capture", lambda cfg, cam: None)
+    resp = client.post("/actions/capture")
+    assert resp.status_code == 303
+    loc = resp.headers["location"]
+    today = date.today().isoformat()
+    assert loc.startswith("/")
+    assert f"watch={today}" in loc
+    assert "type=snapshot" in loc
+    assert re.search(r"since=[\d.]+", loc)
+
+
+def test_action_timelapse_redirect_includes_watch(client, monkeypatch):
+    from datetime import date
+    monkeypatch.setattr("src.web.app.build_timelapse", lambda *a, **kw: None)
+    resp = client.post("/actions/timelapse")
+    assert resp.status_code == 303
+    loc = resp.headers["location"]
+    today = date.today().isoformat()
+    assert f"watch=timelapse_{today}.mp4" in loc
+    assert "type=video" in loc
+
+
+def test_action_permanent_redirect_includes_watch(client, monkeypatch):
+    import re
+    monkeypatch.setattr("src.web.app.build_timelapse", lambda *a, **kw: None)
+    resp = client.post("/actions/timelapse/permanent")
+    assert resp.status_code == 303
+    loc = resp.headers["location"]
+    assert re.search(r"watch=timelapse_permanent_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4", loc)
+    assert "type=permanent" in loc

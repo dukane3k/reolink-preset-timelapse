@@ -251,8 +251,15 @@ def create_app(
             except Exception as exc:
                 logging.getLogger("web.actions").error("Capture failed: %s", exc)
 
+        import time
+        from datetime import date
+        since = time.time()
         background_tasks.add_task(do_capture)
-        return app.state.redirect_with_flash("/", "Capture triggered - check Snapshots in a moment.")
+        today = date.today().isoformat()
+        return app.state.redirect_with_flash(
+            f"/?watch={today}&type=snapshot&since={since}",
+            "Capture triggered - check Snapshots in a moment.",
+        )
 
     @app.post("/actions/timelapse")
     async def action_timelapse(request: Request, background_tasks: BackgroundTasks):
@@ -293,7 +300,10 @@ def create_app(
                 logging.getLogger("web.actions").error("Timelapse build failed: %s", exc)
 
         background_tasks.add_task(do_build)
-        return app.state.redirect_with_flash("/videos", f"Building timelapse for {date_str} - check Videos in a moment.")
+        return app.state.redirect_with_flash(
+            f"/videos?watch=timelapse_{date_str}.mp4&type=video",
+            f"Building timelapse for {date_str} - check Videos in a moment.",
+        )
 
     @app.post("/actions/timelapse/permanent")
     async def action_timelapse_permanent(request: Request, background_tasks: BackgroundTasks):
@@ -337,7 +347,10 @@ def create_app(
                 logging.getLogger("web.actions").error("Permanent timelapse build failed: %s", exc)
 
         background_tasks.add_task(do_build)
-        return app.state.redirect_with_flash("/videos", "Building permanent timelapse - this may take several minutes.")
+        return app.state.redirect_with_flash(
+            f"/videos?watch=timelapse_permanent_{ts}.mp4&type=permanent",
+            "Building permanent timelapse - this may take several minutes.",
+        )
 
     _STATUS_VIDEO_RE = _re.compile(r'^timelapse_\d{4}-\d{2}-\d{2}\.mp4$')
     _STATUS_PERM_RE  = _re.compile(r'^timelapse_permanent_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$')
