@@ -9,3 +9,23 @@ services:
       - /data/timelapse/.env:/app/.env:ro
     environment:
       - TZ=America/Chicago
+
+  web:
+    build: .
+    container_name: reolink-timelapse-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - /data/timelapse/snapshots:/data/snapshots
+      - /data/timelapse/timelapse:/data/timelapse
+      - /data/timelapse/.env:/app/.env
+    environment:
+      - TZ=America/Chicago
+      - SNAPSHOT_DIR=/data/snapshots
+      - TIMELAPSE_DIR=/data/timelapse
+    command: >
+      uvicorn src.web.app:app
+      --host 0.0.0.0
+      --port 8080
+      --factory

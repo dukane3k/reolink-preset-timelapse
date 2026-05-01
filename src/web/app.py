@@ -342,3 +342,15 @@ def create_app(
     app.state.redirect_with_flash = _redirect_with_flash
 
     return app
+
+
+def app():
+    """uvicorn --factory entry point."""
+    env_path = Path("/app/.env")
+    snapshot_dir = Path(os.environ.get("SNAPSHOT_DIR", "/data/snapshots"))
+    timelapse_dir = Path(os.environ.get("TIMELAPSE_DIR", "/data/timelapse"))
+    return create_app(
+        snapshot_dir=snapshot_dir,
+        timelapse_dir=timelapse_dir,
+        env_path=env_path,
+    )
