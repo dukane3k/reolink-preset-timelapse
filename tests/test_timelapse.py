@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 from datetime import timedelta
-from src.timelapse import collect_snapshots, build_timelapse, _parse_snapshot_dt, _srt_timestamp, _write_srt
+from src.timelapse import collect_snapshots, build_timelapse, _parse_snapshot_dt, _srt_timestamp, _write_srt, _write_burnin_ass
 
 
 def _make_snapshots(tmp_path, names):
@@ -109,6 +109,59 @@ def test_build_timelapse_no_subtitles_omits_srt(tmp_path):
     cmd = mock_run.call_args[0][0]
     assert "mov_text" not in cmd
     assert "srt" not in " ".join(cmd)
+
+
+def test_write_burnin_ass_contains_timestamps(tmp_path):
+    names = [
+        "garden_2026-04-30_10-00-00_day.jpg",
+        "garden_2026-04-30_10-30-00_day.jpg",
+        "garden_2026-04-30_11-00-00_day.jpg",
+    ]
+    snapshots = _make_snapshots(tmp_path, names)
+    ass_path = _write_burnin_ass(snapshots, fps=24, every_minutes=30)
+    content = Path(ass_path).read_text()
+    Path(ass_path).unlink()
+    assert "2026-04-30 10:00" in content
+    assert "2026-04-30 10:30" in content
+    assert "2026-04-30 11:00" in content
+    assert "\\fad(0," in content
+    assert "Burnin" in content
+
+
+def test_write_burnin_ass_respects_interval(tmp_path):
+    names = [
+        "garden_2026-04-30_10-00-00_day.jpg",
+        "garden_2026-04-30_10-15-00_day.jpg",
+        "garden_2026-04-30_10-30-00_day.jpg",
+        "garden_2026-04-30_10-45-00_day.jpg",
+    ]
+    snapshots = _make_snapshots(tmp_path, names)
+    # every 30 minutes — should only emit 10:00 and 10:30
+    ass_path = _write_burnin_ass(snapshots, fps=24, every_minutes=30)
+    content = Path(ass_path).read_text()
+    Path(ass_path).unlink()
+    assert "10:00" in content
+    assert "10:30" in content
+    assert "10:15" not in content
+    assert "10:45" not in content
+
+
+def test_build_timelapse_burnin_includes_ass_filter(tmp_path):
+    names = ["garden_2026-04-30_10-00-00_day.jpg"]
+    snapshots = _make_snapshots(tmp_path, names)
+    output = tmp_path / "timelapse_2026-04-30.mp4"
+
+    def mock_ffmpeg_success(cmd, **kwargs):
+        tmp_output = output.with_suffix(".tmp.mp4")
+        tmp_output.write_bytes(b"fake video")
+        return MagicMock(returncode=0)
+
+    with patch("src.timelapse.subprocess.run") as mock_run:
+        mock_run.side_effect = mock_ffmpeg_success
+        build_timelapse(snapshots, output, fps=24, burnin=True, burnin_every_minutes=30)
+
+    cmd = mock_run.call_args[0][0]
+    assert "ass=" in " ".join(cmd)
 
 
 def test_build_timelapse_calls_ffmpeg(tmp_path):

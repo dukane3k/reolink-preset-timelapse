@@ -3,7 +3,7 @@ import logging
 import re
 import subprocess
 import tempfile
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -58,6 +58,77 @@ def _write_srt(snapshots: list[Path], fps: int, every: int = 1) -> str:
         return f.name
 
 
+def _ass_timestamp(td: timedelta) -> str:
+    total = int(td.total_seconds() * 100)
+    cs = total % 100
+    s = (total // 100) % 60
+    m = (total // 6000) % 60
+    h = total // 360000
+    return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
+
+
+def _write_burnin_ass(
+    snapshots: list[Path],
+    fps: int,
+    every_minutes: int,
+    display_seconds: float = 5.0,
+    fade_seconds: float = 1.0,
+) -> str:
+    """Write an ASS subtitle file with bottom-right timestamps that fade out after display_seconds."""
+    frame_duration = 1.0 / fps
+    fade_ms = int(fade_seconds * 1000)
+
+    # ASS header — alignment=3 is bottom-right in numpad layout
+    header = (
+        "[Script Info]\n"
+        "ScriptType: v4.00+\n"
+        "PlayResX: 1920\n"
+        "PlayResY: 1080\n"
+        "WrapStyle: 0\n\n"
+        "[V4+ Styles]\n"
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
+        "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
+        "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
+        "Style: Burnin,Arial,36,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
+        "0,0,0,0,100,100,0,0,1,2,1,3,10,10,20,1\n\n"
+        "[Events]\n"
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
+    )
+
+    # Parse all snapshot datetimes upfront
+    dts = [_parse_snapshot_dt(s) for s in snapshots]
+    first_dt = next((d for d in dts if d is not None), None)
+    if first_dt is None:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".ass", delete=False, encoding="utf-8") as f:
+            f.write(header)
+            return f.name
+
+    lines = []
+    last_bucket = -1
+    for i, (snap, dt) in enumerate(zip(snapshots, dts)):
+        if dt is None:
+            continue
+        elapsed_minutes = (dt - first_dt).total_seconds() / 60
+        bucket = int(elapsed_minutes) // every_minutes
+        if bucket == last_bucket:
+            continue
+        last_bucket = bucket
+
+        label = dt.strftime("%Y-%m-%d %H:%M")
+        start_sec = i * frame_duration
+        end_sec = start_sec + display_seconds
+        start = _ass_timestamp(timedelta(seconds=start_sec))
+        end = _ass_timestamp(timedelta(seconds=end_sec))
+        # \fad(fade_in_ms, fade_out_ms) — instant appear, fade out
+        text = f"{{\\fad(0,{fade_ms})}}{label}"
+        lines.append(f"Dialogue: 0,{start},{end},Burnin,,0,0,0,,{text}")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".ass", delete=False, encoding="utf-8") as f:
+        f.write(header)
+        f.write("\n".join(lines))
+        return f.name
+
+
 def _write_concat_list(snapshots: list[Path], fps: int) -> str:
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         for snap in snapshots:
@@ -81,6 +152,8 @@ def build_timelapse(
     stabilize: bool = False,
     subtitles: bool = True,
     subtitle_every: int = 1,
+    burnin: bool = False,
+    burnin_every_minutes: int = 30,
 ) -> None:
     if not snapshots:
         log.warning("No snapshots available, skipping timelapse build")
@@ -90,23 +163,34 @@ def build_timelapse(
     tmp_output = output.with_suffix(".tmp.mp4")
     list_file = _write_concat_list(snapshots, fps)
     srt_file = _write_srt(snapshots, fps, every=subtitle_every) if subtitles else None
+    ass_file = _write_burnin_ass(snapshots, fps, every_minutes=burnin_every_minutes) if burnin else None
 
     try:
         if stabilize:
-            _build_stabilized(list_file, srt_file, tmp_output, output)
+            _build_stabilized(list_file, srt_file, ass_file, tmp_output, output)
         else:
-            _build_simple(list_file, srt_file, tmp_output, output)
+            _build_simple(list_file, srt_file, ass_file, tmp_output, output)
     finally:
         Path(list_file).unlink(missing_ok=True)
         if srt_file:
             Path(srt_file).unlink(missing_ok=True)
+        if ass_file:
+            Path(ass_file).unlink(missing_ok=True)
 
 
-def _build_simple(list_file: str, srt_file: str | None, tmp_output: Path, output: Path) -> None:
+def _video_filters(ass_file: str | None) -> str:
+    filters = []
+    if ass_file:
+        filters.append(f"ass={ass_file}")
+    filters.append("scale=trunc(iw/2)*2:trunc(ih/2)*2")
+    return ",".join(filters)
+
+
+def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path) -> None:
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
     if srt_file:
         cmd += ["-i", srt_file]
-    cmd += ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p"]
+    cmd += ["-vf", _video_filters(ass_file), "-c:v", "libx264", "-pix_fmt", "yuv420p"]
     if srt_file:
         cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
     cmd.append(str(tmp_output))
@@ -119,7 +203,7 @@ def _build_simple(list_file: str, srt_file: str | None, tmp_output: Path, output
         tmp_output.unlink(missing_ok=True)
 
 
-def _build_stabilized(list_file: str, srt_file: str | None, tmp_output: Path, output: Path) -> None:
+def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path) -> None:
     transforms = tmp_output.with_suffix(".trf")
     try:
         # Pass 1: analyze motion
@@ -131,20 +215,20 @@ def _build_stabilized(list_file: str, srt_file: str | None, tmp_output: Path, ou
         ], "vidstabdetect")
         if not ok:
             log.warning("Stabilization analysis failed, falling back to unstabilized")
-            _build_simple(list_file, srt_file, tmp_output, output)
+            _build_simple(list_file, srt_file, ass_file, tmp_output, output)
             return
 
-        # Pass 2: apply stabilization and optionally embed subtitles
+        # Pass 2: apply stabilization, burn-in, and optionally embed subtitles
+        stabilize_vf = f"vidstabtransform=input={transforms}:smoothing=30:crop=black"
+        if ass_file:
+            vf = f"{stabilize_vf},ass={ass_file},scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        else:
+            vf = f"{stabilize_vf},scale=trunc(iw/2)*2:trunc(ih/2)*2"
+
         cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
         if srt_file:
             cmd += ["-i", srt_file]
-        cmd += [
-            "-vf", (
-                f"vidstabtransform=input={transforms}:smoothing=30:crop=black,"
-                "scale=trunc(iw/2)*2:trunc(ih/2)*2"
-            ),
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        ]
+        cmd += ["-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p"]
         if srt_file:
             cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
         cmd.append(str(tmp_output))

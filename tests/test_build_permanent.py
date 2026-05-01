@@ -32,6 +32,8 @@ def _cfg(tmp_path):
         timelapse_stabilize=False,
         timelapse_subtitles=False,
         timelapse_subtitle_every=1,
+        timelapse_burnin=False,
+        timelapse_burnin_every=30,
     )
 
 

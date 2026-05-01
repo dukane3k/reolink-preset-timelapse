@@ -63,6 +63,8 @@ class Config:
     timelapse_stabilize: bool
     timelapse_subtitles: bool
     timelapse_subtitle_every: int
+    timelapse_burnin: bool
+    timelapse_burnin_every: int
 
     @classmethod
     def from_env(cls) -> Config:
@@ -91,4 +93,6 @@ class Config:
             timelapse_stabilize=_bool("TIMELAPSE_STABILIZE", True),
             timelapse_subtitles=_bool("TIMELAPSE_SUBTITLES", True),
             timelapse_subtitle_every=_int("TIMELAPSE_SUBTITLE_EVERY", 1),
+            timelapse_burnin=_bool("TIMELAPSE_BURNIN", False),
+            timelapse_burnin_every=_int("TIMELAPSE_BURNIN_EVERY", 30),
         )
