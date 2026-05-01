@@ -338,3 +338,16 @@ def test_dashboard_snapshot_iso_in_data_ts(client, dirs):
     resp = client.get("/")
     assert resp.status_code == 200
     assert b'data-ts="2026-05-01T14:32:05"' in resp.content
+
+
+@pytest.mark.xfail(reason="template not yet updated in Task 3", strict=True)
+def test_dashboard_video_iso_in_data_ts(client, dirs):
+    from datetime import date, datetime
+    today = date.today().strftime("%Y-%m-%d")
+    mp4 = dirs["video_dir"] / f"timelapse_{today}.mp4"
+    mp4.write_bytes(b"FAKEMP4")
+    mtime = mp4.stat().st_mtime
+    expected_iso = datetime.fromtimestamp(mtime).strftime("%Y-%m-%dT%H:%M:%S")
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert f'data-ts="{expected_iso}"'.encode() in resp.content

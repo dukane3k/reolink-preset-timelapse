@@ -97,9 +97,11 @@ def create_app(
 
         # Find today's video
         today_video = None
+        today_video_iso = None
         today_video_path = timelapse_dir / f"timelapse_{today}.mp4"
         if today_video_path.is_file():
             today_video = f"timelapse_{today}.mp4"
+            today_video_iso = datetime.fromtimestamp(today_video_path.stat().st_mtime).strftime("%Y-%m-%dT%H:%M:%S")
 
         return app.state.render(
             "dashboard.html", request, "dashboard",
@@ -109,7 +111,7 @@ def create_app(
             snapshot_count_today=snapshot_count_today,
             today=today,
             today_video=today_video,
-            today_video_iso=None,
+            today_video_iso=today_video_iso,
         )
 
     # --- Snapshots ---
