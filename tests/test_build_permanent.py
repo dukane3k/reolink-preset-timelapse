@@ -75,14 +75,16 @@ def test_build_permanent_excludes_night_when_configured(tmp_path):
     assert "_night" not in snapshots[0].name
 
 
-def test_build_permanent_output_path_contains_timestamp(tmp_path):
+def test_build_permanent_output_path_uses_local_timezone(tmp_path):
     cfg = _cfg(tmp_path)
     snapshot_dir = Path(cfg.snapshot_dir)
-    _make_snapshot(snapshot_dir, "2026-05-01", "garden_2026-05-01_10-00-00_day.jpg")
+    _make_snapshot(snapshot_dir, "2026-04-30", "garden_2026-04-30_19-35-00_day.jpg")
+    # 01:35 UTC = 19:35 CDT on 2026-04-30 — but cfg timezone is UTC in _cfg(), so no shift
     dt = datetime(2026, 5, 1, 14, 32, 0, tzinfo=timezone.utc)
 
     with patch("src.build_permanent.build_timelapse") as mock_build:
         path = build_permanent(cfg, now=dt)
 
+    # cfg timezone is UTC, so filename matches UTC time
     assert path.name == "timelapse_permanent_2026-05-01_14-32-00.mp4"
     assert path.parent.name == "permanent"

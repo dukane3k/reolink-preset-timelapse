@@ -2,6 +2,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from src.config import Config, ConfigError
 from src.timelapse import collect_snapshots, build_timelapse
@@ -24,7 +25,7 @@ def build_permanent(cfg: Config, now: datetime | None = None) -> Path:
             continue
         all_snapshots.extend(collect_snapshots(date_dir, include_night=cfg.timelapse_include_night))
 
-    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+    timestamp = now.astimezone(ZoneInfo(cfg.timezone)).strftime("%Y-%m-%d_%H-%M-%S")
     permanent_dir = Path(cfg.timelapse_dir) / "permanent"
     output = permanent_dir / f"timelapse_permanent_{timestamp}.mp4"
 
