@@ -1,6 +1,7 @@
 services:
   timelapse:
     build: .
+    container_name: reolink-preset-timelapse
     restart: unless-stopped
     volumes:
       - /data/timelapse/snapshots:/data/snapshots
