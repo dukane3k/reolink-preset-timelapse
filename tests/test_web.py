@@ -97,7 +97,7 @@ def test_dashboard_shows_latest_snapshot(client, dirs):
     img.write_bytes(b"FAKEJPEG")
     resp = client.get("/")
     assert resp.status_code == 200
-    assert b"Full_Garden_2026-05-01_10-00-00_day.jpg" in resp.content
+    assert b'data-ts="2026-05-01T10:00:00"' in resp.content
 
 
 def test_dashboard_shows_todays_video(client, dirs):
@@ -329,7 +329,6 @@ def test_action_permanent_redirect_includes_watch(client, monkeypatch):
     assert "type=permanent" in loc
 
 
-@pytest.mark.xfail(reason="template not yet updated in Task 3", strict=True)
 def test_dashboard_snapshot_iso_in_data_ts(client, dirs):
     date_dir = dirs["snap_dir"] / "2026-05-01"
     date_dir.mkdir()
@@ -340,7 +339,6 @@ def test_dashboard_snapshot_iso_in_data_ts(client, dirs):
     assert b'data-ts="2026-05-01T14:32:05"' in resp.content
 
 
-@pytest.mark.xfail(reason="template not yet updated in Task 3", strict=True)
 def test_dashboard_video_iso_in_data_ts(client, dirs):
     from datetime import date, datetime
     today = date.today().strftime("%Y-%m-%d")

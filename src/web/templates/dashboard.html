@@ -10,7 +10,7 @@
              style="width:100%;border-radius:4px;display:block;">
       </a>
       <p style="color:#aaa;font-size:0.8rem;margin-top:8px;">
-        {{ latest_snapshot }} &nbsp;·&nbsp; {{ snapshot_count_today }} today
+        {% if latest_snapshot_iso %}<span data-ts="{{ latest_snapshot_iso }}"></span>{% else %}{{ latest_snapshot }}{% endif %} &nbsp;·&nbsp; {{ snapshot_count_today }} today
       </p>
     {% else %}
       <p class="empty-state">No snapshots yet</p>
@@ -23,7 +23,9 @@
       <video controls style="width:100%;border-radius:4px;display:block;">
         <source src="/media/videos/{{ today_video }}" type="video/mp4">
       </video>
-      <p style="color:#aaa;font-size:0.8rem;margin-top:8px;">{{ today_video }}</p>
+      <p style="color:#aaa;font-size:0.8rem;margin-top:8px;">
+        {% if today_video_iso %}<span data-ts="{{ today_video_iso }}"></span>{% else %}{{ today_video }}{% endif %}
+      </p>
     {% else %}
       <p class="empty-state">No timelapse built yet today</p>
     {% endif %}
@@ -60,4 +62,28 @@
     </form>
   </div>
 </div>
+<script>
+(function () {
+  function formatRelative(isoString) {
+    var then = new Date(isoString);
+    var seconds = Math.round((Date.now() - then.getTime()) / 1000);
+    if (seconds < 60) return "just now";
+    var minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return minutes + " minute" + (minutes === 1 ? "" : "s") + " ago";
+    var hours = Math.floor(minutes / 60);
+    if (hours < 24) return hours + " hour" + (hours === 1 ? "" : "s") + " ago";
+    var days = Math.floor(hours / 24);
+    return days + " day" + (days === 1 ? "" : "s") + " ago";
+  }
+
+  function updateAll() {
+    document.querySelectorAll("[data-ts]").forEach(function (el) {
+      el.textContent = formatRelative(el.getAttribute("data-ts"));
+    });
+  }
+
+  updateAll();
+  setInterval(updateAll, 30000);
+})();
+</script>
 {% endblock %}
