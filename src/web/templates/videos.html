@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Videos — Timelapse{% endblock %}
+{% block content %}
+{% if not daily and not permanent %}
+  <p class="empty-state">No videos found.</p>
+{% else %}
+<div style="display:grid;grid-template-columns:200px 1fr;gap:16px;">
+  <div>
+    {% if daily %}
+      <div class="card-label" style="margin-bottom:8px;">Daily</div>
+      {% for v in daily %}
+        <a href="/videos?video={{ v }}"
+           style="display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;margin-bottom:3px;
+                  {% if v == selected %}background:#2a4080;color:#fff;{% else %}background:#1e1e2e;color:#aaa;{% endif %}">
+          {{ v.replace('timelapse_','').replace('.mp4','') }}
+        </a>
+      {% endfor %}
+    {% endif %}
+    {% if permanent %}
+      <div class="card-label" style="margin-top:14px;margin-bottom:8px;">Permanent</div>
+      {% for v in permanent %}
+        <a href="/videos?video={{ v }}"
+           style="display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;margin-bottom:3px;word-break:break-all;
+                  {% if v == selected %}background:#2a4080;color:#fff;{% else %}background:#1e1e2e;color:#aaa;{% endif %}">
+          {{ v.replace('.mp4','') }}
+        </a>
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <div class="card">
+    {% if selected %}
+      <video controls style="width:100%;border-radius:4px;display:block;">
+        <source src="/media/videos/{{ selected }}" type="video/mp4">
+      </video>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <p style="color:#aaa;font-size:0.8rem;">{{ selected }}</p>
+        <a href="/media/videos/{{ selected }}" download class="btn btn-secondary" style="font-size:0.8rem;">&#x2B07; Download</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

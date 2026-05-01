@@ -141,3 +141,27 @@ def test_snapshots_page_empty_state(client):
     resp = client.get("/snapshots")
     assert resp.status_code == 200
     assert b"No snapshots" in resp.content or b"no snapshots" in resp.content.lower()
+
+
+def test_videos_page_lists_daily_videos(client, dirs):
+    (dirs["video_dir"] / "timelapse_2026-05-01.mp4").write_bytes(b"x")
+    (dirs["video_dir"] / "timelapse_2026-04-30.mp4").write_bytes(b"x")
+    resp = client.get("/videos")
+    assert resp.status_code == 200
+    assert b"timelapse_2026-05-01.mp4" in resp.content
+    assert b"timelapse_2026-04-30.mp4" in resp.content
+
+
+def test_videos_page_lists_permanent(client, dirs):
+    perm_dir = dirs["video_dir"] / "permanent"
+    perm_dir.mkdir()
+    (perm_dir / "timelapse_permanent_2026-05-01_12-00-00.mp4").write_bytes(b"x")
+    resp = client.get("/videos")
+    assert resp.status_code == 200
+    assert b"timelapse_permanent_2026-05-01_12-00-00.mp4" in resp.content
+
+
+def test_videos_page_empty_state(client):
+    resp = client.get("/videos")
+    assert resp.status_code == 200
+    assert b"No videos" in resp.content or b"no videos" in resp.content.lower()

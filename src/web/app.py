@@ -124,6 +124,31 @@ def create_app(
             snaps=snaps,
         )
 
+    # --- Videos ---
+
+    @app.get("/videos", response_class=HTMLResponse)
+    def videos_page(request: Request, video: str = ""):
+        daily = sorted(
+            [f.name for f in timelapse_dir.glob("timelapse_????-??-??.mp4")],
+            reverse=True,
+        )
+        perm_dir = timelapse_dir / "permanent"
+        permanent = sorted(
+            [f.name for f in perm_dir.glob("*.mp4")],
+            reverse=True,
+        ) if perm_dir.exists() else []
+
+        selected = video or (daily[0] if daily else (permanent[0] if permanent else ""))
+        is_permanent = selected in permanent
+
+        return app.state.render(
+            "videos.html", request, "videos",
+            daily=daily,
+            permanent=permanent,
+            selected=selected,
+            is_permanent=is_permanent,
+        )
+
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
     app.state.timelapse_dir = timelapse_dir
