@@ -15,12 +15,12 @@ def _align_to_reference(
     reference_gray: np.ndarray,
     reference_img: np.ndarray,
     target_path: Path,
-) -> np.ndarray:
+) -> np.ndarray | None:
     """Return target image translated to align with reference using ECC. Falls back to unaligned on failure."""
     target_img = cv2.imread(str(target_path))
     if target_img is None:
-        log.warning("Could not read %s, using reference frame", target_path)
-        return reference_img.copy()
+        log.warning("Could not read %s, skipping", target_path)
+        return None
     target_gray = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
 
     # Translation-only warp: 2x3 identity matrix as starting point
@@ -93,6 +93,8 @@ def align_snapshots(snapshots: list[Path], output_dir: Path, crop_percent: int =
 
     for snap in snapshots[1:]:
         aligned = _align_to_reference(reference_gray, reference_img, snap)
+        if aligned is None:
+            continue
         out_path = output_dir / snap.name
         cv2.imwrite(str(out_path), aligned[y:y+ch, x:x+cw])
         aligned_paths.append(out_path)

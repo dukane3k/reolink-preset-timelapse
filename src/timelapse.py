@@ -205,9 +205,9 @@ def build_timelapse(
 
         try:
             if stabilize:
-                _build_stabilized(list_file, srt_file, ass_file, tmp_output, output, stabilize_crop, stabilize_smoothing, stabilize_shakiness)
+                _build_stabilized(list_file, srt_file, ass_file, tmp_output, output, fps, stabilize_crop, stabilize_smoothing, stabilize_shakiness)
             else:
-                _build_simple(list_file, srt_file, ass_file, tmp_output, output)
+                _build_simple(list_file, srt_file, ass_file, tmp_output, output, fps)
         finally:
             Path(list_file).unlink(missing_ok=True)
             if srt_file:
@@ -227,11 +227,11 @@ def _video_filters(ass_file: str | None) -> str:
     return ",".join(filters)
 
 
-def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path) -> None:
+def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path, fps: int = 25) -> None:
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
     if srt_file:
         cmd += ["-i", srt_file]
-    cmd += ["-vf", _video_filters(ass_file), "-c:v", "libx264", "-pix_fmt", "yuv420p"]
+    cmd += ["-vf", _video_filters(ass_file), "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p"]
     if srt_file:
         cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
     cmd.append(str(tmp_output))
@@ -244,7 +244,7 @@ def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tm
         tmp_output.unlink(missing_ok=True)
 
 
-def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path, stabilize_crop: int = 5, stabilize_smoothing: int = 5, stabilize_shakiness: int = 5) -> None:
+def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path, fps: int = 25, stabilize_crop: int = 5, stabilize_smoothing: int = 5, stabilize_shakiness: int = 5) -> None:
     transforms = tmp_output.with_suffix(".trf")
     try:
         # Pass 1: analyze motion
@@ -256,7 +256,7 @@ def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None
         ], "vidstabdetect")
         if not ok:
             log.warning("Stabilization analysis failed, falling back to unstabilized")
-            _build_simple(list_file, srt_file, ass_file, tmp_output, output)
+            _build_simple(list_file, srt_file, ass_file, tmp_output, output, fps)
             return
 
         # Pass 2: apply stabilization with auto-zoom to keep center clean, then trim any remaining edges
@@ -278,7 +278,7 @@ def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None
         cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
         if srt_file:
             cmd += ["-i", srt_file]
-        cmd += ["-vf", vf, "-c:v", "libx264", "-pix_fmt", "yuv420p"]
+        cmd += ["-vf", vf, "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p"]
         if srt_file:
             cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
         cmd.append(str(tmp_output))
