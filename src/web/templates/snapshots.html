@@ -19,15 +19,26 @@
 {% elif snaps %}
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
     {% for snap in snaps %}
+      {% set label = snap|snap_label %}
+      {% set time  = snap|snap_time %}
+      {% if label == 'night' %}
+        {% set badge_bg = '#2a2a3a' %}{% set badge_color = '#aab' %}
+      {% elif label == 'sunrise' %}
+        {% set badge_bg = '#3a2a1a' %}{% set badge_color = '#f0a060' %}
+      {% elif label == 'sunset' %}
+        {% set badge_bg = '#3a1a2a' %}{% set badge_color = '#e07090' %}
+      {% else %}
+        {% set badge_bg = '#1a2e3a' %}{% set badge_color = '#70b8e0' %}
+      {% endif %}
       <a href="/media/snapshots/{{ selected_date }}/{{ snap }}" target="_blank"
-         title="{{ snap }}" style="display:block;">
-        <img src="/media/snapshots/{{ selected_date }}/{{ snap }}"
-             alt="{{ snap }}"
-             style="width:100%;border-radius:4px;aspect-ratio:4/3;object-fit:cover;display:block;">
-        <p style="color:#bbb;font-size:0.7rem;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          {{ snap.split('_')[-1].replace('.jpg','') }}
-          · {{ snap.split('_')[2] | replace('-',':') }}
-        </p>
+         title="{{ snap }}" style="display:block;text-decoration:none;">
+        <div style="position:relative;">
+          <img src="/media/snapshots/{{ selected_date }}/{{ snap }}"
+               alt="{{ snap }}"
+               style="width:100%;border-radius:4px;aspect-ratio:4/3;object-fit:cover;display:block;">
+          <span style="position:absolute;top:6px;left:6px;background:{{ badge_bg }};color:{{ badge_color }};font-size:0.65rem;font-weight:600;letter-spacing:0.04em;padding:2px 6px;border-radius:3px;text-transform:uppercase;">{{ label }}</span>
+        </div>
+        <p style="color:#888;font-size:0.75rem;margin-top:5px;font-weight:500;">{{ time }}</p>
       </a>
     {% endfor %}
   </div>

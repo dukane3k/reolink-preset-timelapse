@@ -21,6 +21,25 @@ def create_app(
     app = FastAPI()
     templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
+    def _snap_time(filename: str) -> str:
+        """Convert snapshot filename to formatted time, e.g. '10:08 AM'."""
+        parts = filename.split("_")
+        if len(parts) < 4:
+            return ""
+        h, m = parts[3].split("-")[:2]
+        hour, minute = int(h), int(m)
+        suffix = "AM" if hour < 12 else "PM"
+        hour12 = hour % 12 or 12
+        return f"{hour12}:{minute:02d} {suffix}"
+
+    def _snap_label(filename: str) -> str:
+        """Extract label from snapshot filename, e.g. 'day', 'night', 'sunrise', 'sunset'."""
+        parts = filename.split("_")
+        return parts[-1].replace(".jpg", "") if parts else ""
+
+    templates.env.filters["snap_time"] = _snap_time
+    templates.env.filters["snap_label"] = _snap_label
+
     def _flash(request: Request) -> tuple[str, str]:
         msg = request.cookies.get("flash_message", "")
         typ = request.cookies.get("flash_type", "success")

@@ -143,6 +143,38 @@ def test_snapshots_page_empty_state(client):
     assert b"No snapshots" in resp.content or b"no snapshots" in resp.content.lower()
 
 
+def test_snapshots_page_shows_formatted_time(client, dirs):
+    d = dirs["snap_dir"] / "2026-05-01"
+    d.mkdir()
+    (d / "Full_Garden_2026-05-01_10-08-27_day.jpg").write_bytes(b"x")
+    resp = client.get("/snapshots?date=2026-05-01")
+    assert resp.status_code == 200
+    # Should show formatted time like "10:08 AM" as visible text
+    assert b"10:08 AM" in resp.content
+
+
+def test_snapshots_page_shows_label_badge(client, dirs):
+    d = dirs["snap_dir"] / "2026-05-01"
+    d.mkdir()
+    (d / "Full_Garden_2026-05-01_10-00-00_day.jpg").write_bytes(b"x")
+    (d / "Full_Garden_2026-05-01_20-00-00_night.jpg").write_bytes(b"x")
+    (d / "Full_Garden_2026-05-01_06-00-00_sunrise.jpg").write_bytes(b"x")
+    (d / "Full_Garden_2026-05-01_19-00-00_sunset.jpg").write_bytes(b"x")
+    resp = client.get("/snapshots?date=2026-05-01")
+    assert resp.status_code == 200
+    content = resp.text
+    # Each label should appear as a visible badge
+    assert "day" in content
+    assert "night" in content
+    assert "sunrise" in content
+    assert "sunset" in content
+    # Labels should appear in styled badge spans, not just raw filenames
+    assert content.count('>day<') >= 1
+    assert content.count('>night<') >= 1
+    assert content.count('>sunrise<') >= 1
+    assert content.count('>sunset<') >= 1
+
+
 def test_videos_page_lists_daily_videos(client, dirs):
     (dirs["video_dir"] / "timelapse_2026-05-01.mp4").write_bytes(b"x")
     (dirs["video_dir"] / "timelapse_2026-04-30.mp4").write_bytes(b"x")
