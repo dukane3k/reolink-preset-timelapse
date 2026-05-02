@@ -111,6 +111,25 @@
   var status = document.getElementById('actions-status');
   var link   = document.getElementById('actions-link');
   var timer  = null;
+  var PROGRESS_KEY = 'tl_action_progress';
+
+  function saveProgress(watch, type, since) {
+    try { sessionStorage.setItem(PROGRESS_KEY, JSON.stringify({watch: watch, type: type, since: since})); } catch (e) {}
+  }
+
+  function clearProgress() {
+    try { sessionStorage.removeItem(PROGRESS_KEY); } catch (e) {}
+  }
+
+  function loadProgress() {
+    try { var v = sessionStorage.getItem(PROGRESS_KEY); return v ? JSON.parse(v) : null; } catch (e) { return null; }
+  }
+
+  var _progressLabels = {
+    'snapshot':  'Capturing snapshot…',
+    'video':     'Building timelapse…',
+    'permanent': 'Building permanent timelapse…',
+  };
 
   function setProgress(msg) {
     btns.style.display = 'none';
@@ -121,6 +140,7 @@
   }
 
   function setDone(msg, href) {
+    clearProgress();
     document.getElementById('actions-spinner').style.display = 'none';
     status.textContent = msg;
     status.style.color = '#2a7a2a';
@@ -136,6 +156,7 @@
   }
 
   function setError(msg) {
+    clearProgress();
     document.getElementById('actions-spinner').style.display = 'none';
     status.textContent = msg;
     status.style.color = '#cc3333';
@@ -181,8 +202,7 @@
           clearTimeout(timer);
           logSince = null;
           if (type === 'snapshot') {
-            var date = watch;
-            setDone('Snapshot captured.', '/snapshots?date=' + encodeURIComponent(date));
+            setDone('Snapshot captured.', '/snapshots?date=' + encodeURIComponent(watch));
           } else {
             setDone('Ready.', '/videos?video=' + encodeURIComponent(data.file || watch));
           }
@@ -194,6 +214,14 @@
       .catch(function () {
         timer = setTimeout(function () { poll(watch, type, since); }, 2000);
       });
+  }
+
+  // Resume in-progress action after navigation
+  var saved = loadProgress();
+  if (saved) {
+    setProgress(_progressLabels[saved.type] || 'Working…');
+    logSince = saved.since;
+    poll(saved.watch, saved.type, saved.since);
   }
 
   document.querySelectorAll('.action-form').forEach(function (form) {
@@ -217,6 +245,7 @@
         })
         .then(function (data) {
           if (data.type === 'permanent' || data.type === 'video') logSince = data.since;
+          saveProgress(data.watch, data.type, data.since);
           poll(data.watch, data.type, data.since);
         })
         .catch(function (err) {
