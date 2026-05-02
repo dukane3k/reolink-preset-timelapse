@@ -93,8 +93,7 @@ def align_snapshots(snapshots: list[Path], output_dir: Path, crop_percent: int =
 
     total = len(snapshots)
     for i, snap in enumerate(snapshots[1:], start=1):
-        if i % 10 == 0:
-            log.info("Aligning frame %d / %d", i, total)
+        log.info("Aligning frame %d / %d", i, total)
         aligned = _align_to_reference(reference_gray, reference_img, snap)
         if aligned is None:
             continue

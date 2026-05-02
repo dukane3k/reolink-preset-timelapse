@@ -187,7 +187,7 @@
             setDone('Ready.', '/videos?video=' + encodeURIComponent(data.file || watch));
           }
         } else {
-          if (type === 'permanent') pollLog();
+          if (type === 'permanent' || type === 'video') pollLog();
           timer = setTimeout(function () { poll(watch, type, since); }, 2000);
         }
       })
@@ -216,7 +216,7 @@
           return r.json();
         })
         .then(function (data) {
-          if (data.type === 'permanent') logSince = data.since;
+          if (data.type === 'permanent' || data.type === 'video') logSince = data.since;
           poll(data.watch, data.type, data.since);
         })
         .catch(function (err) {
