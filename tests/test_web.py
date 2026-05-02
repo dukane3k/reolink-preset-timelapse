@@ -84,6 +84,34 @@ def test_media_video_returns_404_for_missing(client):
     assert resp.status_code == 404
 
 
+def test_media_video_supports_range_request(client, dirs):
+    mp4 = dirs["video_dir"] / "timelapse_2026-05-01.mp4"
+    mp4.write_bytes(b"0123456789")
+    resp = client.get("/media/videos/timelapse_2026-05-01.mp4", headers={"Range": "bytes=2-5"})
+    assert resp.status_code == 206
+    assert resp.content == b"2345"
+    assert resp.headers["content-range"] == "bytes 2-5/10"
+    assert resp.headers["accept-ranges"] == "bytes"
+
+
+def test_media_video_range_open_ended(client, dirs):
+    mp4 = dirs["video_dir"] / "timelapse_2026-05-01.mp4"
+    mp4.write_bytes(b"0123456789")
+    resp = client.get("/media/videos/timelapse_2026-05-01.mp4", headers={"Range": "bytes=7-"})
+    assert resp.status_code == 206
+    assert resp.content == b"789"
+    assert resp.headers["content-range"] == "bytes 7-9/10"
+
+
+def test_media_video_no_range_returns_200_with_accept_ranges(client, dirs):
+    mp4 = dirs["video_dir"] / "timelapse_2026-05-01.mp4"
+    mp4.write_bytes(b"FAKEMP4DATA")
+    resp = client.get("/media/videos/timelapse_2026-05-01.mp4")
+    assert resp.status_code == 200
+    assert resp.headers["accept-ranges"] == "bytes"
+    assert resp.content == b"FAKEMP4DATA"
+
+
 def test_dashboard_renders_empty_state(client):
     resp = client.get("/")
     assert resp.status_code == 200

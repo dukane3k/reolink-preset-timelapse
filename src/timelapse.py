@@ -231,7 +231,7 @@ def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tm
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
     if srt_file:
         cmd += ["-i", srt_file]
-    cmd += ["-vf", _video_filters(ass_file), "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p"]
+    cmd += ["-vf", _video_filters(ass_file), "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
     if srt_file:
         cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
     cmd.append(str(tmp_output))
@@ -278,7 +278,7 @@ def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None
         cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
         if srt_file:
             cmd += ["-i", srt_file]
-        cmd += ["-vf", vf, "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p"]
+        cmd += ["-vf", vf, "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
         if srt_file:
             cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
         cmd.append(str(tmp_output))
