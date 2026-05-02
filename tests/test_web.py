@@ -610,3 +610,75 @@ def test_api_log_respects_since_param(client, monkeypatch):
     resp = client.get("/api/log?since=1746100000.0")
     assert resp.status_code == 200
     assert captured_kwargs.get("since") == 1746100000.0
+
+
+# --- Delete endpoints ---
+
+def test_delete_daily_video_removes_file(client, dirs):
+    video = dirs["video_dir"] / "timelapse_2026-05-01.mp4"
+    video.write_bytes(b"x")
+    resp = client.delete("/api/videos/timelapse_2026-05-01.mp4")
+    assert resp.status_code == 200
+    assert not video.exists()
+
+
+def test_delete_daily_video_returns_404_when_missing(client, dirs):
+    resp = client.delete("/api/videos/timelapse_2026-05-01.mp4")
+    assert resp.status_code == 404
+
+
+def test_delete_permanent_video_removes_file(client, dirs):
+    perm_dir = dirs["video_dir"] / "permanent"
+    perm_dir.mkdir()
+    video = perm_dir / "timelapse_permanent_2026-05-01.mp4"
+    video.write_bytes(b"x")
+    resp = client.delete("/api/videos/permanent/timelapse_permanent_2026-05-01.mp4")
+    assert resp.status_code == 200
+    assert not video.exists()
+
+
+def test_delete_permanent_video_returns_404_when_missing(client, dirs):
+    resp = client.delete("/api/videos/permanent/timelapse_permanent_2026-05-01.mp4")
+    assert resp.status_code == 404
+
+
+def test_delete_video_path_traversal_is_blocked(client, dirs):
+    # Starlette normalizes ../ out of the URL before routing, so the request
+    # lands on an unknown path and gets 404 — traversal is impossible.
+    resp = client.delete("/api/videos/../secret.txt")
+    assert resp.status_code == 404
+
+
+def test_delete_snapshot_removes_file(client, dirs):
+    day_dir = dirs["snap_dir"] / "2026-05-01"
+    day_dir.mkdir()
+    snap = day_dir / "2026-05-01_10-00-00_day.jpg"
+    snap.write_bytes(b"x")
+    resp = client.delete("/api/snapshots/2026-05-01/2026-05-01_10-00-00_day.jpg")
+    assert resp.status_code == 200
+    assert not snap.exists()
+
+
+def test_delete_snapshot_returns_404_when_missing(client, dirs):
+    resp = client.delete("/api/snapshots/2026-05-01/2026-05-01_10-00-00_day.jpg")
+    assert resp.status_code == 404
+
+
+def test_delete_snapshot_rejects_invalid_date(client, dirs):
+    resp = client.delete("/api/snapshots/not-a-date/snap.jpg")
+    assert resp.status_code == 400
+
+
+def test_delete_snapshot_day_removes_directory(client, dirs):
+    day_dir = dirs["snap_dir"] / "2026-05-01"
+    day_dir.mkdir()
+    (day_dir / "snap1.jpg").write_bytes(b"x")
+    (day_dir / "snap2.jpg").write_bytes(b"x")
+    resp = client.delete("/api/snapshots/2026-05-01")
+    assert resp.status_code == 200
+    assert not day_dir.exists()
+
+
+def test_delete_snapshot_day_returns_404_when_missing(client, dirs):
+    resp = client.delete("/api/snapshots/2026-05-01")
+    assert resp.status_code == 404

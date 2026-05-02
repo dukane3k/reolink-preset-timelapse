@@ -11,6 +11,10 @@
   </select>
   {% if snaps %}
     <span style="color:#aaa;font-size:0.8rem;">{{ snaps|length }} snapshots</span>
+    <button id="delete-day-btn" data-date="{{ selected_date }}"
+            style="margin-left:auto;background:none;border:1px solid #e5e2dc;color:#999;font-size:0.75rem;padding:4px 10px;border-radius:4px;cursor:pointer;">
+      Delete day
+    </button>
   {% endif %}
 </div>
 
@@ -30,19 +34,64 @@
       {% else %}
         {% set badge_bg = '#1a2e3a' %}{% set badge_color = '#70b8e0' %}
       {% endif %}
-      <a href="/media/snapshots/{{ selected_date }}/{{ snap }}" target="_blank"
-         title="{{ snap }}" style="display:block;text-decoration:none;">
-        <div style="position:relative;">
-          <img src="/media/snapshots/{{ selected_date }}/{{ snap }}"
-               alt="{{ snap }}"
-               style="width:100%;border-radius:4px;aspect-ratio:4/3;object-fit:cover;display:block;">
-          <span style="position:absolute;top:6px;left:6px;background:{{ badge_bg }};color:{{ badge_color }};font-size:0.65rem;font-weight:600;letter-spacing:0.04em;padding:2px 6px;border-radius:3px;text-transform:uppercase;">{{ label }}</span>
-        </div>
-        <p style="color:#888;font-size:0.75rem;margin-top:5px;font-weight:500;">{{ time }}</p>
-      </a>
+      <div class="snap-item" data-snap="{{ snap }}" data-date="{{ selected_date }}" style="position:relative;">
+        <a href="/media/snapshots/{{ selected_date }}/{{ snap }}" target="_blank"
+           title="{{ snap }}" style="display:block;text-decoration:none;">
+          <div style="position:relative;">
+            <img src="/media/snapshots/{{ selected_date }}/{{ snap }}"
+                 alt="{{ snap }}"
+                 style="width:100%;border-radius:4px;aspect-ratio:4/3;object-fit:cover;display:block;">
+            <span style="position:absolute;top:6px;left:6px;background:{{ badge_bg }};color:{{ badge_color }};font-size:0.65rem;font-weight:600;letter-spacing:0.04em;padding:2px 6px;border-radius:3px;text-transform:uppercase;">{{ label }}</span>
+          </div>
+          <p style="color:#888;font-size:0.75rem;margin-top:5px;font-weight:500;">{{ time }}</p>
+        </a>
+        <button class="snap-delete-btn"
+                style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.45);border:none;border-radius:3px;padding:3px 5px;cursor:pointer;color:#fff;line-height:1;display:none;"
+                title="Delete snapshot">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
+      </div>
     {% endfor %}
   </div>
 {% else %}
   <p class="empty-state">No snapshots for {{ selected_date }}.</p>
 {% endif %}
+<script>
+// Show/hide per-thumbnail delete button on hover
+document.querySelectorAll('.snap-item').forEach(function (item) {
+  var btn = item.querySelector('.snap-delete-btn');
+  item.addEventListener('mouseenter', function () { btn.style.display = ''; });
+  item.addEventListener('mouseleave', function () { btn.style.display = 'none'; });
+  btn.addEventListener('click', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var snap = item.dataset.snap;
+    var date = item.dataset.date;
+    if (!confirm('Delete ' + snap + '?')) return;
+    fetch('/api/snapshots/' + encodeURIComponent(date) + '/' + encodeURIComponent(snap), { method: 'DELETE' })
+      .then(function (r) {
+        if (r.ok) { item.remove(); }
+        else { alert('Delete failed.'); }
+      })
+      .catch(function () { alert('Delete failed.'); });
+  });
+});
+
+// Delete entire day
+var deleteDayBtn = document.getElementById('delete-day-btn');
+if (deleteDayBtn) {
+  deleteDayBtn.addEventListener('click', function () {
+    var date = deleteDayBtn.dataset.date;
+    if (!confirm('Delete all snapshots for ' + date + '?')) return;
+    fetch('/api/snapshots/' + encodeURIComponent(date), { method: 'DELETE' })
+      .then(function (r) {
+        if (r.ok) { window.location.href = '/snapshots'; }
+        else { alert('Delete failed.'); }
+      })
+      .catch(function () { alert('Delete failed.'); });
+  });
+}
+</script>
 {% endblock %}

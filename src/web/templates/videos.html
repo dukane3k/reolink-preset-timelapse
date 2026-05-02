@@ -9,21 +9,39 @@
     {% if daily %}
       <div class="card-label" style="margin-bottom:8px;">Daily</div>
       {% for v in daily %}
-        <a href="/videos?video={{ v }}"
-           style="display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;margin-bottom:3px;
-                  {% if v == selected %}background:#1a1a1a;color:#fff;{% else %}background:#f5f4f0;color:#555;{% endif %}">
-          {{ v.replace('timelapse_','').replace('.mp4','') }}
-        </a>
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+          <a href="/videos?video={{ v }}"
+             style="flex:1;min-width:0;display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;
+                    {% if v == selected %}background:#1a1a1a;color:#fff;{% else %}background:#f5f4f0;color:#555;{% endif %}">
+            {{ v.replace('timelapse_','').replace('.mp4','') }}
+          </a>
+          <button class="delete-btn" data-url="/api/videos/{{ v }}" data-confirm="{{ v }}"
+                  style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:4px;color:#bbb;line-height:1;"
+                  title="Delete {{ v }}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
+        </div>
       {% endfor %}
     {% endif %}
     {% if permanent %}
       <div class="card-label" style="margin-top:14px;margin-bottom:8px;">Permanent</div>
       {% for v in permanent %}
-        <a href="/videos?video={{ v }}"
-           style="display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;margin-bottom:3px;word-break:break-all;
-                  {% if v == selected %}background:#1a1a1a;color:#fff;{% else %}background:#f5f4f0;color:#555;{% endif %}">
-          {{ v.replace('.mp4','') }}
-        </a>
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+          <a href="/videos?video={{ v }}"
+             style="flex:1;min-width:0;display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;word-break:break-all;
+                    {% if v == selected %}background:#1a1a1a;color:#fff;{% else %}background:#f5f4f0;color:#555;{% endif %}">
+            {{ v.replace('.mp4','') }}
+          </a>
+          <button class="delete-btn" data-url="/api/videos/permanent/{{ v }}" data-confirm="{{ v }}"
+                  style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:4px;color:#bbb;line-height:1;"
+                  title="Delete {{ v }}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
+        </div>
       {% endfor %}
     {% endif %}
   </div>
@@ -48,4 +66,27 @@
   </div>
 </div>
 {% endif %}
+<script>
+document.querySelectorAll('.delete-btn').forEach(function (btn) {
+  btn.addEventListener('click', function (e) {
+    e.preventDefault();
+    var name = btn.dataset.confirm;
+    if (!confirm('Delete ' + name + '?')) return;
+    fetch(btn.dataset.url, { method: 'DELETE' })
+      .then(function (r) {
+        if (r.ok) {
+          var row = btn.closest('div[style]');
+          if (row) row.remove();
+          // If the deleted video was selected, reload to clear the player
+          if (window.location.search.indexOf(encodeURIComponent(name)) !== -1) {
+            window.location.href = '/videos';
+          }
+        } else {
+          alert('Delete failed.');
+        }
+      })
+      .catch(function () { alert('Delete failed.'); });
+  });
+});
+</script>
 {% endblock %}

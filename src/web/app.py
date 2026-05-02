@@ -427,6 +427,53 @@ def create_app(
 
         return JSONResponse({"ready": False})
 
+    _VIDEO_NAME_RE = _re.compile(r'^[a-zA-Z0-9_\-\.]+\.mp4$')
+    _SNAP_DATE_RE  = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
+    _SNAP_NAME_RE  = _re.compile(r'^[a-zA-Z0-9_\-\.]+\.jpg$')
+
+    @app.delete("/api/videos/permanent/{filename}")
+    def delete_permanent_video(filename: str):
+        if not _VIDEO_NAME_RE.match(filename):
+            return JSONResponse({"error": "invalid filename"}, status_code=400)
+        path = timelapse_dir / "permanent" / filename
+        if not path.exists():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path.unlink()
+        return JSONResponse({"deleted": filename})
+
+    @app.delete("/api/videos/{filename}")
+    def delete_daily_video(filename: str):
+        if not _VIDEO_NAME_RE.match(filename):
+            return JSONResponse({"error": "invalid filename"}, status_code=400)
+        path = timelapse_dir / filename
+        if not path.exists():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path.unlink()
+        return JSONResponse({"deleted": filename})
+
+    @app.delete("/api/snapshots/{date}")
+    def delete_snapshot_day(date: str):
+        import shutil
+        if not _SNAP_DATE_RE.match(date):
+            return JSONResponse({"error": "invalid date"}, status_code=400)
+        path = snapshot_dir / date
+        if not path.exists():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        shutil.rmtree(path)
+        return JSONResponse({"deleted": date})
+
+    @app.delete("/api/snapshots/{date}/{filename}")
+    def delete_snapshot(date: str, filename: str):
+        if not _SNAP_DATE_RE.match(date):
+            return JSONResponse({"error": "invalid date"}, status_code=400)
+        if not _SNAP_NAME_RE.match(filename):
+            return JSONResponse({"error": "invalid filename"}, status_code=400)
+        path = snapshot_dir / date / filename
+        if not path.exists():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path.unlink()
+        return JSONResponse({"deleted": filename})
+
     @app.get("/api/errors")
     def api_errors(since: float | None = None):
         import time
