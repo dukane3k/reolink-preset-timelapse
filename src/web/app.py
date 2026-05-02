@@ -492,7 +492,7 @@ def create_app(
             since = time.time() - 3600
         try:
             dc = docker_sdk.from_env()
-            container = dc.containers.get("reolink-preset-timelapse")
+            container = dc.containers.get("reolink-timelapse-web")
             raw = container.logs(since=since, timestamps=True)
         except Exception:
             return JSONResponse({"lines": []})
