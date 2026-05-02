@@ -10,7 +10,7 @@ from src.config import Config, ConfigError
 from src.camera import CameraClient, CameraError
 from src.capture import run_capture
 from src.lighting import get_lighting_label
-from src.timelapse import collect_snapshots_through_date, build_timelapse
+from src.timelapse import collect_snapshots, collect_snapshots_through_date, build_timelapse
 from src.retention import prune_timelapses
 
 logging.basicConfig(
@@ -27,8 +27,16 @@ def _handle_sigterm(signum, frame):
     _shutdown_event.set()
 
 
+def _collect_for_date(cfg: Config, date_str: str) -> list:
+    snap_root = Path(cfg.snapshot_dir)
+    if cfg.timelapse_daily_mode == "cumulative":
+        return collect_snapshots_through_date(snap_root, date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
+    day_dir = snap_root / date_str
+    return collect_snapshots(day_dir, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
+
+
 def _rebuild_timelapse(cfg: Config, date_str: str) -> None:
-    snapshots = collect_snapshots_through_date(Path(cfg.snapshot_dir), date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
+    snapshots = _collect_for_date(cfg, date_str)
     output = Path(cfg.timelapse_dir) / f"timelapse_{date_str}.mp4"
     try:
         build_timelapse(snapshots, output, fps=cfg.timelapse_fps, align=cfg.timelapse_align, stabilize=cfg.timelapse_stabilize, stabilize_crop=cfg.timelapse_stabilize_crop, stabilize_smoothing=cfg.timelapse_stabilize_smoothing, stabilize_shakiness=cfg.timelapse_stabilize_shakiness, subtitles=cfg.timelapse_subtitles, subtitle_every=cfg.timelapse_subtitle_every, burnin=cfg.timelapse_burnin, burnin_every_minutes=cfg.timelapse_burnin_every)
@@ -58,8 +66,8 @@ def run(cfg: Config) -> None:
     while not _shutdown_event.is_set():
         now = datetime.now(tz=local_tz)
 
-        # Midnight rotation
-        if now.date() != current_date:
+        # Daily finalization at 00:01
+        if now.date() != current_date and (now.hour, now.minute) >= (0, 1):
             log.info("New day — finalizing timelapse for %s", current_date)
             _rebuild_timelapse(cfg, str(current_date))
             prune_timelapses(

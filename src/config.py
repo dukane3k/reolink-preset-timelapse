@@ -70,6 +70,7 @@ class Config:
     timelapse_subtitle_every: int
     timelapse_burnin: bool
     timelapse_burnin_every: int
+    timelapse_daily_mode: str  # "day_only" | "cumulative"
 
     @classmethod
     def from_env(cls) -> Config:
@@ -105,4 +106,5 @@ class Config:
             timelapse_subtitle_every=_int("TIMELAPSE_SUBTITLE_EVERY", 1),
             timelapse_burnin=_bool("TIMELAPSE_BURNIN", False),
             timelapse_burnin_every=_int("TIMELAPSE_BURNIN_EVERY", 30),
+            timelapse_daily_mode=os.environ.get("TIMELAPSE_DAILY_MODE", "day_only").strip() or "day_only",
         )

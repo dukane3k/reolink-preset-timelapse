@@ -39,6 +39,7 @@ def _cfg(tmp_path):
         timelapse_subtitle_every=1,
         timelapse_burnin=False,
         timelapse_burnin_every=30,
+        timelapse_daily_mode="day_only",
     )
 
 
@@ -83,6 +84,7 @@ def test_build_snapshot_path_uses_local_timezone(tmp_path):
         timelapse_subtitle_every=1,
         timelapse_burnin=False,
         timelapse_burnin_every=30,
+        timelapse_daily_mode="day_only",
     )
     # 01:35 UTC = 19:35 CDT (UTC-5) on the previous calendar day
     dt = datetime(2026, 5, 1, 0, 35, 0, tzinfo=timezone.utc)

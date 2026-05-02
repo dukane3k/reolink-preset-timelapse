@@ -39,6 +39,7 @@ def _cfg(tmp_path):
         timelapse_subtitle_every=1,
         timelapse_burnin=False,
         timelapse_burnin_every=30,
+        timelapse_daily_mode="day_only",
     )
 
 

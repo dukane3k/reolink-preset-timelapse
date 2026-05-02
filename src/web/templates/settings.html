@@ -74,20 +74,6 @@
   <div class="card" style="margin-bottom:16px;">
     <div class="card-label">Camera</div>
     {{ field("CAMERA_IP", "Camera IP") }}
-    {{ field("CAMERA_USERNAME", "Username", "text", ac="off") }}
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;">
-      <label for="field-cam-secret" style="color:#555;font-size:0.85rem;padding-top:6px;min-width:220px;">Password</label>
-      <div style="flex:1;max-width:340px;display:flex;gap:6px;">
-        <input id="field-cam-secret" name="cam-secret" type="text"
-               value="{{ values.get('CAMERA_PASSWORD', '') }}"
-               autocomplete="off"
-               style="flex:1;background:#f5f4f0;border:1px solid #e5e2dc;color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;font-family:monospace;">
-        <button type="button" id="pw-toggle"
-                style="background:#e5e2dc;border:1px solid #d8d5cf;color:#555;padding:5px 10px;border-radius:4px;font-size:0.8rem;cursor:pointer;white-space:nowrap;">
-          Show
-        </button>
-      </div>
-    </div>
     {{ field("CAMERA_PRESET_NAME", "Preset Name") }}
     {{ field("CAMERA_HOME_PRESET", "Home Preset (optional)") }}
     {{ field("PTZ_SETTLE_DELAY", "PTZ Settle Delay (sec)") }}
@@ -135,6 +121,10 @@
     <div class="card-label">Timelapse</div>
     {{ select("TIMELAPSE_FPS", "FPS", [
         ("12","12"),("24","24 (default)"),("30","30"),("60","60")
+    ]) }}
+    {{ select("TIMELAPSE_DAILY_MODE", "Daily Timelapse Mode", [
+        ("day_only","Day only — just that day's snapshots"),
+        ("cumulative","Cumulative — all snapshots up to that day")
     ]) }}
     {{ select("TIMELAPSE_INCLUDE_NIGHT", "Include Night Frames", [
         ("true","Yes"),("false","No")
@@ -197,21 +187,6 @@
 <style>@keyframes spin { to { transform: rotate(360deg); } }</style>
 
 <script>
-(function () {
-  var pwField = document.getElementById('field-cam-secret');
-  var pwToggle = document.getElementById('pw-toggle');
-  pwField.style.webkitTextSecurity = 'disc';
-  pwField.style.textSecurity = 'disc';
-  pwToggle.addEventListener('click', function () {
-    var masked = pwField.style.webkitTextSecurity === 'disc';
-    pwField.style.webkitTextSecurity = masked ? 'none' : 'disc';
-    pwField.style.textSecurity = masked ? 'none' : 'disc';
-    pwToggle.textContent = masked ? 'Hide' : 'Show';
-  });
-  document.getElementById('settings-form').addEventListener('submit', function () {
-    pwField.name = 'CAMERA_PASSWORD';
-  }, true);
-})();
 (function () {
   // parent id -> "disabled when value equals this"
   var disabledWhen = {

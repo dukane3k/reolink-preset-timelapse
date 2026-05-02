@@ -201,6 +201,7 @@ def create_app(
         "TIMELAPSE_ALIGN", "TIMELAPSE_STABILIZE",
         "TIMELAPSE_SUBTITLES", "TIMELAPSE_BURNIN",
         "TIMELAPSE_RETAIN_ALL",
+        "TIMELAPSE_DAILY_MODE",
     }
 
     from src.web.env_editor import read_env, write_env
@@ -310,7 +311,11 @@ def create_app(
         except Exception as exc:
             return app.state.redirect_with_flash("/videos", f"Config error: {exc}", "error")
 
-        snaps = collect_snapshots_through_date(snapshot_dir, date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
+        from src.timelapse import collect_snapshots as _collect_day
+        if cfg.timelapse_daily_mode == "cumulative":
+            snaps = collect_snapshots_through_date(snapshot_dir, date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
+        else:
+            snaps = _collect_day(snapshot_dir / date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
         output = timelapse_dir / f"timelapse_{date_str}.mp4"
 
         def do_build():

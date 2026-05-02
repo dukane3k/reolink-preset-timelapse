@@ -70,3 +70,27 @@ def test_config_snapshot_24_7_false(monkeypatch):
     cfg = Config.from_env()
     assert cfg.snapshot_24_7 is False
     assert cfg.timelapse_include_night is False
+
+
+def test_config_timelapse_daily_mode_defaults_to_day_only(monkeypatch):
+    monkeypatch.delenv("TIMELAPSE_DAILY_MODE", raising=False)
+    for k, v in {
+        "CAMERA_IP": "x", "CAMERA_USERNAME": "a", "CAMERA_PASSWORD": "b",
+        "CAMERA_PRESET_NAME": "g", "LATITUDE": "0", "LONGITUDE": "0",
+        "SNAPSHOT_DIR": "/s", "TIMELAPSE_DIR": "/t",
+    }.items():
+        monkeypatch.setenv(k, v)
+    cfg = Config.from_env()
+    assert cfg.timelapse_daily_mode == "day_only"
+
+
+def test_config_timelapse_daily_mode_cumulative(monkeypatch):
+    monkeypatch.setenv("TIMELAPSE_DAILY_MODE", "cumulative")
+    for k, v in {
+        "CAMERA_IP": "x", "CAMERA_USERNAME": "a", "CAMERA_PASSWORD": "b",
+        "CAMERA_PRESET_NAME": "g", "LATITUDE": "0", "LONGITUDE": "0",
+        "SNAPSHOT_DIR": "/s", "TIMELAPSE_DIR": "/t",
+    }.items():
+        monkeypatch.setenv(k, v)
+    cfg = Config.from_env()
+    assert cfg.timelapse_daily_mode == "cumulative"
