@@ -2,15 +2,57 @@
 {% block title %}Settings — Timelapse{% endblock %}
 {% block content %}
 <form method="post" action="/settings" id="settings-form" autocomplete="off">
-  {% macro field(key, label, type="text") %}
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;">
+  {% macro field(key, label, type="text", child_of="", ac="off") %}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;"
+         {% if child_of %}data-child-of="{{ child_of }}"{% endif %}>
+      <label for="field-{{ key }}" style="color:#555;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
+      <div style="flex:1;max-width:340px;">
+        <input id="field-{{ key }}" name="{{ key }}" type="{{ type }}"
+               value="{{ values.get(key, '') }}"
+               autocomplete="{{ ac }}"
+               style="width:100%;background:#f5f4f0;border:1px solid {% if errors.get(key) %}#cc3333{% else %}#e5e2dc{% endif %};
+                      color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
+        {% if errors.get(key) %}
+          <p style="color:#ff9999;font-size:0.75rem;margin-top:3px;">{{ errors[key] }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endmacro %}
+
+  {% macro select(key, label, options, child_of="") %}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;"
+         {% if child_of %}data-child-of="{{ child_of }}"{% endif %}>
       <label for="{{ key }}" style="color:#555;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
       <div style="flex:1;max-width:340px;">
-        <input id="{{ key }}" name="{{ key }}" type="{{ type }}"
+        <select id="{{ key }}" name="{{ key }}"
+                style="width:100%;background:#f5f4f0;border:1px solid {% if errors.get(key) %}#cc3333{% else %}#e5e2dc{% endif %};
+                       color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;appearance:auto;">
+          {% set cur = values.get(key, '') %}
+          {% for val, lbl in options %}
+            <option value="{{ val }}" {% if cur == val %}selected{% endif %}>{{ lbl }}</option>
+          {% endfor %}
+        </select>
+        {% if errors.get(key) %}
+          <p style="color:#ff9999;font-size:0.75rem;margin-top:3px;">{{ errors[key] }}</p>
+        {% endif %}
+      </div>
+    </div>
+  {% endmacro %}
+
+  {% macro datalist_field(key, label, list_id, suggestions, child_of="") %}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;"
+         {% if child_of %}data-child-of="{{ child_of }}"{% endif %}>
+      <label for="{{ key }}" style="color:#555;font-size:0.85rem;padding-top:6px;min-width:220px;">{{ label }}</label>
+      <div style="flex:1;max-width:340px;">
+        <input id="{{ key }}" name="{{ key }}" type="text"
                value="{{ values.get(key, '') }}"
+               list="{{ list_id }}"
                autocomplete="off"
                style="width:100%;background:#f5f4f0;border:1px solid {% if errors.get(key) %}#cc3333{% else %}#e5e2dc{% endif %};
                       color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;">
+        <datalist id="{{ list_id }}">
+          {% for s in suggestions %}<option value="{{ s }}">{% endfor %}
+        </datalist>
         {% if errors.get(key) %}
           <p style="color:#ff9999;font-size:0.75rem;margin-top:3px;">{{ errors[key] }}</p>
         {% endif %}
@@ -32,45 +74,104 @@
   <div class="card" style="margin-bottom:16px;">
     <div class="card-label">Camera</div>
     {{ field("CAMERA_IP", "Camera IP") }}
-    {{ field("CAMERA_USERNAME", "Username") }}
-    {{ field("CAMERA_PASSWORD", "Password", "password") }}
+    {{ field("CAMERA_USERNAME", "Username", "text", ac="off") }}
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:8px 0;border-bottom:1px solid #f0ede8;">
+      <label for="field-cam-secret" style="color:#555;font-size:0.85rem;padding-top:6px;min-width:220px;">Password</label>
+      <div style="flex:1;max-width:340px;display:flex;gap:6px;">
+        <input id="field-cam-secret" name="cam-secret" type="text"
+               value="{{ values.get('CAMERA_PASSWORD', '') }}"
+               autocomplete="off"
+               style="flex:1;background:#f5f4f0;border:1px solid #e5e2dc;color:#1a1a1a;padding:5px 10px;border-radius:4px;font-size:0.875rem;font-family:monospace;">
+        <button type="button" id="pw-toggle"
+                style="background:#e5e2dc;border:1px solid #d8d5cf;color:#555;padding:5px 10px;border-radius:4px;font-size:0.8rem;cursor:pointer;white-space:nowrap;">
+          Show
+        </button>
+      </div>
+    </div>
     {{ field("CAMERA_PRESET_NAME", "Preset Name") }}
     {{ field("CAMERA_HOME_PRESET", "Home Preset (optional)") }}
     {{ field("PTZ_SETTLE_DELAY", "PTZ Settle Delay (sec)") }}
-    {{ field("PTZ_SPEED", "PTZ Speed (1-63)") }}
-    {{ field("CAMERA_CHANNEL", "Camera Channel") }}
+    {{ select("PTZ_SPEED", "PTZ Speed", [
+        ("1","1"),("2","2"),("4","4"),("8","8"),("12","12"),("16","16"),
+        ("20","20"),("24","24"),("28","28"),("32","32 (default)"),
+        ("36","36"),("40","40"),("44","44"),("48","48"),("52","52"),
+        ("56","56"),("60","60"),("64","64")
+    ]) }}
+    {{ select("CAMERA_CHANNEL", "Camera Channel", [
+        ("0","0 (single camera)"),("1","1"),("2","2"),("3","3"),
+        ("4","4"),("5","5"),("6","6"),("7","7")
+    ]) }}
   </div>
 
   <div class="card" style="margin-bottom:16px;">
     <div class="card-label">Schedule</div>
-    {{ field("SNAPSHOT_INTERVAL", "Snapshot Interval (min)") }}
-    {{ field("SNAPSHOT_24_7", "Capture 24/7 (true/false)") }}
+    {{ select("SNAPSHOT_INTERVAL", "Snapshot Interval (min)", [
+        ("1","1 min"),("2","2 min"),("5","5 min"),("10","10 min"),
+        ("15","15 min (default)"),("20","20 min"),("30","30 min"),("60","60 min")
+    ]) }}
+    {{ select("SNAPSHOT_24_7", "Capture 24/7", [
+        ("true","Yes — capture around the clock"),
+        ("false","No — skip night hours")
+    ]) }}
     {{ field("LATITUDE", "Latitude") }}
     {{ field("LONGITUDE", "Longitude") }}
-    {{ field("TIMEZONE", "Timezone (e.g. America/Chicago)") }}
+    {{ datalist_field("TIMEZONE", "Timezone", "tz-list", [
+        "America/New_York","America/Chicago","America/Denver",
+        "America/Los_Angeles","America/Phoenix","America/Anchorage",
+        "America/Honolulu","Europe/London","Europe/Paris","Europe/Berlin",
+        "Europe/Amsterdam","Europe/Rome","Europe/Madrid","Europe/Stockholm",
+        "Europe/Helsinki","Europe/Athens","Europe/Moscow","Asia/Tokyo",
+        "Asia/Shanghai","Asia/Hong_Kong","Asia/Singapore","Asia/Kolkata",
+        "Asia/Dubai","Asia/Karachi","Asia/Bangkok","Asia/Seoul",
+        "Australia/Sydney","Australia/Melbourne","Australia/Perth",
+        "Pacific/Auckland","Pacific/Auckland","America/Toronto",
+        "America/Vancouver","America/Sao_Paulo","America/Buenos_Aires",
+        "Africa/Johannesburg","Africa/Cairo","Africa/Lagos"
+    ]) }}
     {{ field("SUNRISE_SUNSET_WINDOW", "Sunrise/Sunset Window (min)") }}
   </div>
 
   <div class="card" style="margin-bottom:16px;">
     <div class="card-label">Timelapse</div>
-    {{ field("TIMELAPSE_FPS", "FPS") }}
-    {{ field("TIMELAPSE_INCLUDE_NIGHT", "Include Night (true/false)") }}
-    {{ field("TIMELAPSE_ALIGN", "Frame Alignment (true/false)") }}
-    {{ field("TIMELAPSE_STABILIZE", "Stabilization (true/false)") }}
-    {{ field("TIMELAPSE_STABILIZE_CROP", "Stabilize Crop %") }}
-    {{ field("TIMELAPSE_STABILIZE_SMOOTHING", "Stabilize Smoothing") }}
-    {{ field("TIMELAPSE_STABILIZE_SHAKINESS", "Stabilize Shakiness (1-10)") }}
-    {{ field("TIMELAPSE_SUBTITLES", "Subtitles (true/false)") }}
-    {{ field("TIMELAPSE_SUBTITLE_EVERY", "Subtitle Every N Frames") }}
-    {{ field("TIMELAPSE_BURNIN", "Burn-in Timestamps (true/false)") }}
-    {{ field("TIMELAPSE_BURNIN_EVERY", "Burn-in Every N Minutes") }}
+    {{ select("TIMELAPSE_FPS", "FPS", [
+        ("12","12"),("24","24 (default)"),("30","30"),("60","60")
+    ]) }}
+    {{ select("TIMELAPSE_INCLUDE_NIGHT", "Include Night Frames", [
+        ("true","Yes"),("false","No")
+    ]) }}
+    {{ select("TIMELAPSE_INCLUDE_TRANSITIONS", "Include Sunrise/Sunset Frames", [
+        ("true","Yes"),("false","No")
+    ]) }}
+    {{ select("TIMELAPSE_ALIGN", "Frame Alignment", [
+        ("true","Enabled (recommended for PTZ)"),("false","Disabled")
+    ]) }}
+    {{ select("TIMELAPSE_STABILIZE", "Stabilization", [
+        ("false","Disabled"),("true","Enabled")
+    ]) }}
+    {{ field("TIMELAPSE_STABILIZE_CROP", "Stabilize Crop %", child_of="TIMELAPSE_STABILIZE") }}
+    {{ field("TIMELAPSE_STABILIZE_SMOOTHING", "Stabilize Smoothing (0–100)", child_of="TIMELAPSE_STABILIZE") }}
+    {{ select("TIMELAPSE_STABILIZE_SHAKINESS", "Stabilize Shakiness", [
+        ("1","1"),("2","2"),("3","3"),("4","4"),("5","5 (default)"),
+        ("6","6"),("7","7"),("8","8"),("9","9"),("10","10")
+    ], child_of="TIMELAPSE_STABILIZE") }}
+    {{ select("TIMELAPSE_SUBTITLES", "Subtitles", [
+        ("true","Enabled"),("false","Disabled")
+    ]) }}
+    {{ field("TIMELAPSE_SUBTITLE_EVERY", "Subtitle Every N Frames", child_of="TIMELAPSE_SUBTITLES") }}
+    {{ select("TIMELAPSE_BURNIN", "Burn-in Timestamps", [
+        ("false","Disabled"),("true","Enabled")
+    ]) }}
+    {{ field("TIMELAPSE_BURNIN_EVERY", "Burn-in Every N Minutes", child_of="TIMELAPSE_BURNIN") }}
   </div>
 
   <div class="card" style="margin-bottom:16px;">
     <div class="card-label">Retention</div>
-    {{ field("TIMELAPSE_RETENTION_DAYS", "Retention Days") }}
-    {{ field("TIMELAPSE_ARCHIVE_EVERY", "Archive Every N Days") }}
-    {{ field("TIMELAPSE_RETAIN_ALL", "Retain All (true/false)") }}
+    {{ select("TIMELAPSE_RETAIN_ALL", "Retain All", [
+        ("false","No — prune per retention rules"),
+        ("true","Yes — keep everything forever")
+    ]) }}
+    {{ field("TIMELAPSE_RETENTION_DAYS", "Retention Days", child_of="TIMELAPSE_RETAIN_ALL") }}
+    {{ field("TIMELAPSE_ARCHIVE_EVERY", "Archive Every N Days", child_of="TIMELAPSE_RETAIN_ALL") }}
   </div>
 
   <div style="display:flex;gap:10px;align-items:center;margin-top:4px;">
@@ -84,12 +185,70 @@
     </button>
   </div>
 </form>
+
+<div id="save-overlay" style="display:none;position:fixed;inset:0;background:rgba(245,244,240,0.8);
+     z-index:999;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"
+       style="animation:spin 0.9s linear infinite;">
+    <path d="M12 2a10 10 0 0 1 10 10"/>
+  </svg>
+  <p style="color:#555;font-size:0.95rem;font-weight:500;">Saving &amp; restarting container…</p>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+
 <script>
+(function () {
+  var pwField = document.getElementById('field-cam-secret');
+  var pwToggle = document.getElementById('pw-toggle');
+  pwField.style.webkitTextSecurity = 'disc';
+  pwField.style.textSecurity = 'disc';
+  pwToggle.addEventListener('click', function () {
+    var masked = pwField.style.webkitTextSecurity === 'disc';
+    pwField.style.webkitTextSecurity = masked ? 'none' : 'disc';
+    pwField.style.textSecurity = masked ? 'none' : 'disc';
+    pwToggle.textContent = masked ? 'Hide' : 'Show';
+  });
+  document.getElementById('settings-form').addEventListener('submit', function () {
+    pwField.name = 'CAMERA_PASSWORD';
+  }, true);
+})();
+(function () {
+  // parent id -> "disabled when value equals this"
+  var disabledWhen = {
+    TIMELAPSE_STABILIZE: "false",
+    TIMELAPSE_SUBTITLES: "false",
+    TIMELAPSE_BURNIN:    "false",
+    TIMELAPSE_RETAIN_ALL: "true",
+  };
+
+  function applyState(parentId) {
+    var parent = document.getElementById(parentId);
+    if (!parent) return;
+    var disabled = parent.value === disabledWhen[parentId];
+    document.querySelectorAll('[data-child-of="' + parentId + '"]').forEach(function (row) {
+      row.style.opacity = disabled ? "0.4" : "";
+      row.querySelectorAll("input, select").forEach(function (el) {
+        el.disabled = disabled;
+      });
+    });
+  }
+
+  Object.keys(disabledWhen).forEach(function (id) {
+    applyState(id);
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", function () { applyState(id); });
+  });
+
   var dirty = false;
   document.getElementById('settings-form').addEventListener('change', function() { dirty = true; });
-  document.getElementById('settings-form').addEventListener('submit', function() { dirty = false; });
+  document.getElementById('settings-form').addEventListener('submit', function() {
+    dirty = false;
+    var overlay = document.getElementById('save-overlay');
+    overlay.style.display = 'flex';
+  });
   window.addEventListener('beforeunload', function(e) {
     if (dirty) { e.preventDefault(); }
   });
+})();
 </script>
 {% endblock %}

@@ -23,7 +23,7 @@ def build_permanent(cfg: Config, now: datetime | None = None) -> Path:
     for date_dir in sorted(snapshot_root.iterdir()):
         if not date_dir.is_dir():
             continue
-        all_snapshots.extend(collect_snapshots(date_dir, include_night=cfg.timelapse_include_night))
+        all_snapshots.extend(collect_snapshots(date_dir, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions))
 
     timestamp = now.astimezone(ZoneInfo(cfg.timezone)).strftime("%Y-%m-%d_%H-%M-%S")
     permanent_dir = Path(cfg.timelapse_dir) / "permanent"

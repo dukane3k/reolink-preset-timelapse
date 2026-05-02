@@ -12,22 +12,24 @@ log = logging.getLogger(__name__)
 _TIMESTAMP_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})")
 
 
-def collect_snapshots(snapshot_dir: Path, include_night: bool) -> list[Path]:
+def collect_snapshots(snapshot_dir: Path, include_night: bool, include_transitions: bool = True) -> list[Path]:
     if not snapshot_dir.exists():
         return []
     files = sorted(snapshot_dir.glob("*.jpg"))
     if not include_night:
         files = [f for f in files if "_night" not in f.name]
+    if not include_transitions:
+        files = [f for f in files if "_sunrise" not in f.name and "_sunset" not in f.name]
     return files
 
 
-def collect_snapshots_through_date(snapshot_root: Path, up_to_date: str, include_night: bool) -> list[Path]:
+def collect_snapshots_through_date(snapshot_root: Path, up_to_date: str, include_night: bool, include_transitions: bool = True) -> list[Path]:
     """Collect all snapshots from all dates up to and including up_to_date, sorted chronologically."""
     if not snapshot_root.exists():
         return []
     all_files: list[Path] = []
     for day_dir in sorted(d for d in snapshot_root.iterdir() if d.is_dir() and d.name <= up_to_date):
-        all_files.extend(collect_snapshots(day_dir, include_night))
+        all_files.extend(collect_snapshots(day_dir, include_night, include_transitions))
     return all_files
 
 

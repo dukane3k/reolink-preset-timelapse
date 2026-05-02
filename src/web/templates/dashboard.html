@@ -32,10 +32,10 @@
   </div>
 </div>
 
-<div class="card">
+<div class="card" id="actions-card">
   <div class="card-label">Quick Actions</div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
-    <form method="post" action="/actions/capture">
+  <div id="actions-buttons" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;">
+    <form class="action-form" data-action="/actions/capture">
       <button type="submit" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -44,7 +44,7 @@
         Capture Now
       </button>
     </form>
-    <form method="post" action="/actions/timelapse">
+    <form class="action-form" data-action="/actions/timelapse">
       <button type="submit" class="btn btn-secondary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
@@ -52,7 +52,7 @@
         Build Today's Timelapse
       </button>
     </form>
-    <form method="post" action="/actions/timelapse/permanent">
+    <form class="action-form" data-action="/actions/timelapse/permanent">
       <button type="submit" class="btn btn-secondary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
@@ -61,7 +61,18 @@
       </button>
     </form>
   </div>
+  <div id="actions-progress" style="display:none;margin-top:12px;align-items:center;gap:10px;">
+    <svg id="actions-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"
+         style="flex-shrink:0;animation:spin 0.9s linear infinite;">
+      <path d="M12 2a10 10 0 0 1 10 10"/>
+    </svg>
+    <span id="actions-status" style="color:#888;font-size:0.875rem;"></span>
+    <a id="actions-link" href="#" style="display:none;font-size:0.875rem;margin-left:4px;">View →</a>
+  </div>
 </div>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 <script>
 (function () {
   function formatRelative(isoString) {
@@ -84,6 +95,99 @@
 
   updateAll();
   setInterval(updateAll, 30000);
+
+  // --- Inline action progress ---
+  var btns   = document.getElementById('actions-buttons');
+  var prog   = document.getElementById('actions-progress');
+  var status = document.getElementById('actions-status');
+  var link   = document.getElementById('actions-link');
+  var timer  = null;
+
+  function setProgress(msg) {
+    btns.style.display = 'none';
+    prog.style.display = 'flex';
+    status.textContent = msg;
+    link.style.display = 'none';
+    document.getElementById('actions-spinner').style.display = '';
+  }
+
+  function setDone(msg, href) {
+    document.getElementById('actions-spinner').style.display = 'none';
+    status.textContent = msg;
+    status.style.color = '#2a7a2a';
+    if (href) {
+      link.href = href;
+      link.style.display = '';
+    }
+    setTimeout(function () {
+      btns.style.display = '';
+      prog.style.display = 'none';
+      status.style.color = '#888';
+    }, 5000);
+  }
+
+  function setError(msg) {
+    document.getElementById('actions-spinner').style.display = 'none';
+    status.textContent = msg;
+    status.style.color = '#cc3333';
+    setTimeout(function () {
+      btns.style.display = '';
+      prog.style.display = 'none';
+      status.style.color = '#888';
+    }, 5000);
+  }
+
+  function poll(watch, type, since) {
+    var url = '/api/status?watch=' + encodeURIComponent(watch) +
+              '&type=' + encodeURIComponent(type) +
+              '&since=' + encodeURIComponent(since);
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ready) {
+          clearTimeout(timer);
+          if (type === 'snapshot') {
+            var date = watch;
+            setDone('Snapshot captured.', '/snapshots?date=' + encodeURIComponent(date));
+          } else {
+            setDone('Ready.', '/videos?video=' + encodeURIComponent(data.file || watch));
+          }
+        } else {
+          timer = setTimeout(function () { poll(watch, type, since); }, 2000);
+        }
+      })
+      .catch(function () {
+        timer = setTimeout(function () { poll(watch, type, since); }, 2000);
+      });
+  }
+
+  document.querySelectorAll('.action-form').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var action = form.dataset.action;
+      var labels = {
+        '/actions/capture': 'Capturing snapshot…',
+        '/actions/timelapse': 'Building timelapse…',
+        '/actions/timelapse/permanent': 'Building permanent timelapse — this may take several minutes…',
+      };
+      setProgress(labels[action] || 'Working…');
+      clearTimeout(timer);
+      fetch(action, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+      })
+        .then(function (r) {
+          if (!r.ok) throw new Error('Server error');
+          return r.json();
+        })
+        .then(function (data) {
+          poll(data.watch, data.type, data.since);
+        })
+        .catch(function (err) {
+          setError('Error: ' + err.message);
+        });
+    });
+  });
 })();
 </script>
 {% endblock %}

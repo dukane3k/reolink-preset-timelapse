@@ -3,6 +3,7 @@ import logging
 import signal
 import threading
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from dotenv import load_dotenv
 from src.config import Config, ConfigError
@@ -27,7 +28,7 @@ def _handle_sigterm(signum, frame):
 
 
 def _rebuild_timelapse(cfg: Config, date_str: str) -> None:
-    snapshots = collect_snapshots_through_date(Path(cfg.snapshot_dir), date_str, include_night=cfg.timelapse_include_night)
+    snapshots = collect_snapshots_through_date(Path(cfg.snapshot_dir), date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
     output = Path(cfg.timelapse_dir) / f"timelapse_{date_str}.mp4"
     try:
         build_timelapse(snapshots, output, fps=cfg.timelapse_fps, align=cfg.timelapse_align, stabilize=cfg.timelapse_stabilize, stabilize_crop=cfg.timelapse_stabilize_crop, stabilize_smoothing=cfg.timelapse_stabilize_smoothing, stabilize_shakiness=cfg.timelapse_stabilize_shakiness, subtitles=cfg.timelapse_subtitles, subtitle_every=cfg.timelapse_subtitle_every, burnin=cfg.timelapse_burnin, burnin_every_minutes=cfg.timelapse_burnin_every)
@@ -48,13 +49,14 @@ def run(cfg: Config) -> None:
         channel=cfg.camera_channel,
         ptz_speed=cfg.ptz_speed,
     )
+    local_tz = ZoneInfo(cfg.timezone)
     interval = timedelta(minutes=cfg.snapshot_interval)
-    current_date = datetime.now(tz=timezone.utc).date()
+    current_date = datetime.now(tz=local_tz).date()
 
     log.info("Scheduler started. Interval: %d min", cfg.snapshot_interval)
 
     while not _shutdown_event.is_set():
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=local_tz)
 
         # Midnight rotation
         if now.date() != current_date:
@@ -89,7 +91,7 @@ def run(cfg: Config) -> None:
             break
 
         next_tick = now + interval
-        sleep_secs = (next_tick - datetime.now(tz=timezone.utc)).total_seconds()
+        sleep_secs = (next_tick - datetime.now(tz=local_tz)).total_seconds()
         if sleep_secs > 0:
             log.info("Next capture in %.0f seconds", sleep_secs)
             _shutdown_event.wait(timeout=sleep_secs)

@@ -52,6 +52,7 @@ class Config:
     timezone: str
     sunrise_sunset_window: int
     timelapse_include_night: bool
+    timelapse_include_transitions: bool
     timelapse_fps: int
     snapshot_dir: str
     timelapse_dir: str
@@ -86,6 +87,7 @@ class Config:
             timezone=os.environ.get("TIMEZONE", os.environ.get("TZ", "UTC")),
             sunrise_sunset_window=_int("SUNRISE_SUNSET_WINDOW", 30),
             timelapse_include_night=_bool("TIMELAPSE_INCLUDE_NIGHT", True),
+            timelapse_include_transitions=_bool("TIMELAPSE_INCLUDE_TRANSITIONS", True),
             timelapse_fps=_int("TIMELAPSE_FPS", 24),
             snapshot_dir=_require("SNAPSHOT_DIR"),
             timelapse_dir=_require("TIMELAPSE_DIR"),

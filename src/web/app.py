@@ -178,7 +178,7 @@ def create_app(
         "CAMERA_PRESET_NAME", "CAMERA_HOME_PRESET",
         "SNAPSHOT_24_7",
         "TIMEZONE",
-        "TIMELAPSE_INCLUDE_NIGHT",
+        "TIMELAPSE_INCLUDE_NIGHT", "TIMELAPSE_INCLUDE_TRANSITIONS",
         "TIMELAPSE_ALIGN", "TIMELAPSE_STABILIZE",
         "TIMELAPSE_SUBTITLES", "TIMELAPSE_BURNIN",
         "TIMELAPSE_RETAIN_ALL",
@@ -265,6 +265,8 @@ def create_app(
         since = time.time()
         background_tasks.add_task(do_capture)
         today = date.today().isoformat()
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"watch": today, "type": "snapshot", "since": since})
         return app.state.redirect_with_flash(
             f"/?watch={today}&type=snapshot&since={since}",
             "Capture triggered - check Snapshots in a moment.",
@@ -289,7 +291,7 @@ def create_app(
         except Exception as exc:
             return app.state.redirect_with_flash("/videos", f"Config error: {exc}", "error")
 
-        snaps = collect_snapshots_through_date(snapshot_dir, date_str, include_night=cfg.timelapse_include_night)
+        snaps = collect_snapshots_through_date(snapshot_dir, date_str, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions)
         output = timelapse_dir / f"timelapse_{date_str}.mp4"
 
         def do_build():
@@ -311,8 +313,11 @@ def create_app(
         import time
         since = time.time()
         background_tasks.add_task(do_build)
+        watch = f"timelapse_{date_str}.mp4"
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"watch": watch, "type": "video", "since": since})
         return app.state.redirect_with_flash(
-            f"/videos?watch=timelapse_{date_str}.mp4&type=video&since={since}",
+            f"/videos?watch={watch}&type=video&since={since}",
             f"Building timelapse for {date_str} - check Videos in a moment.",
         )
 
@@ -334,7 +339,7 @@ def create_app(
         if snapshot_dir.exists():
             for day_dir in sorted(snapshot_dir.iterdir()):
                 if day_dir.is_dir():
-                    all_snaps.extend(collect_snapshots(day_dir, include_night=cfg.timelapse_include_night))
+                    all_snaps.extend(collect_snapshots(day_dir, include_night=cfg.timelapse_include_night, include_transitions=cfg.timelapse_include_transitions))
 
         perm_dir = timelapse_dir / "permanent"
         perm_dir.mkdir(exist_ok=True)
@@ -360,8 +365,11 @@ def create_app(
         import time
         since = time.time()
         background_tasks.add_task(do_build)
+        watch = f"timelapse_permanent_{ts}.mp4"
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"watch": watch, "type": "permanent", "since": since})
         return app.state.redirect_with_flash(
-            f"/videos?watch=timelapse_permanent_{ts}.mp4&type=permanent&since={since}",
+            f"/videos?watch={watch}&type=permanent&since={since}",
             "Building permanent timelapse - this may take several minutes.",
         )
 

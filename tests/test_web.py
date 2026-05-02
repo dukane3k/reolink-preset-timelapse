@@ -191,7 +191,7 @@ def test_settings_post_rejects_invalid_integer(client):
     )
     # Re-renders the form with an error
     assert resp.status_code == 200
-    assert b"not_a_number" in resp.content or b"invalid" in resp.content.lower()
+    assert b"Must be an integer" in resp.content
 
 
 def test_action_capture_redirects(client, monkeypatch):

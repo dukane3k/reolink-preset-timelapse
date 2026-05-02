@@ -21,6 +21,7 @@ def _cfg(tmp_path):
         timezone="UTC",
         sunrise_sunset_window=30,
         timelapse_include_night=True,
+        timelapse_include_transitions=True,
         timelapse_fps=24,
         snapshot_dir=str(tmp_path / "snapshots"),
         timelapse_dir=str(tmp_path / "timelapse"),
