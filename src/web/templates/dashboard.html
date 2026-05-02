@@ -224,6 +224,28 @@
     return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
+  function formatDate(iso) {
+    if (!iso) return '';
+    var d = new Date(iso + 'Z');
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
+  function relativeAge(iso) {
+    if (!iso) return '';
+    var diffS = (Date.now() / 1000) - isoToUnix(iso);
+    if (diffS < 90) return 'just now';
+    if (diffS < 3600) return Math.round(diffS / 60) + ' min ago';
+    if (diffS < 86400) return Math.round(diffS / 3600) + 'h ago';
+    return Math.round(diffS / 86400) + 'd ago';
+  }
+
+  function fullTimestamp(iso) {
+    if (!iso) return '';
+    var today = new Date().toLocaleDateString([], { month: 'short', day: 'numeric' });
+    var dateStr = formatDate(iso);
+    return (dateStr === today ? '' : dateStr + ' ') + formatTime(iso);
+  }
+
   function showBanner(errors) {
     var newest = errors.reduce(function (max, e) {
       return isoToUnix(e.timestamp) > isoToUnix(max.timestamp) ? e : max;
@@ -231,16 +253,18 @@
 
     if (isoToUnix(newest.timestamp) <= dismissedUntil()) return;
 
+    var age = relativeAge(newest.timestamp);
+    var ageSpan = ' <span style="opacity:0.7;font-size:0.85em;">(' + age + ')</span>';
+
     if (errors.length === 1) {
-      bannerText.textContent = errors[0].message;
+      bannerText.innerHTML = errors[0].message + ' — ' + fullTimestamp(errors[0].timestamp) + ageSpan;
       bannerDetail.style.display = 'none';
     } else {
-      var since = formatTime(errors[0].timestamp);
-      bannerText.innerHTML = errors.length + ' errors since ' + since + ' — <a href="#" id="error-expand-link" style="color:inherit;">expand</a>';
+      bannerText.innerHTML = errors.length + ' errors — most recent ' + fullTimestamp(newest.timestamp) + ageSpan + ' — <a href="#" id="error-expand-link" style="color:inherit;">expand</a>';
       bannerList.innerHTML = '';
       errors.forEach(function (e) {
         var li = document.createElement('li');
-        li.textContent = '[' + formatTime(e.timestamp) + '] ' + e.message;
+        li.textContent = fullTimestamp(e.timestamp) + ' — ' + e.message;
         bannerList.appendChild(li);
       });
       var expandLink = document.getElementById('error-expand-link');
