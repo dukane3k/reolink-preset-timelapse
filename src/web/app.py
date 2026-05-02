@@ -174,7 +174,7 @@ def create_app(
     }
     _FLOAT_FIELDS = {"LATITUDE", "LONGITUDE"}
     _ALL_FIELDS = _INT_FIELDS | _FLOAT_FIELDS | {
-        "CAMERA_IP", "CAMERA_USERNAME", "CAMERA_PASSWORD",
+        "CAMERA_IP",
         "CAMERA_PRESET_NAME", "CAMERA_HOME_PRESET",
         "SNAPSHOT_24_7",
         "TIMEZONE",
@@ -407,6 +407,58 @@ def create_app(
             return JSONResponse({"ready": False})
 
         return JSONResponse({"ready": False})
+
+    @app.get("/api/errors")
+    def api_errors(since: float = 0.0):
+        import time
+        import docker as docker_sdk
+        if since == 0.0:
+            since = time.time() - 3600
+        try:
+            dc = docker_sdk.from_env()
+            container = dc.containers.get("reolink-preset-timelapse")
+            if container.status != "running":
+                import datetime
+                return JSONResponse({
+                    "errors": [{
+                        "timestamp": datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
+                        "level": "CRITICAL",
+                        "message": f"Container is not running (status: {container.status})",
+                    }],
+                    "container_status": container.status,
+                })
+            raw = container.logs(since=since, timestamps=True)
+        except Exception:
+            return JSONResponse({"errors": [], "container_status": "unknown"})
+
+        entries = []
+        for raw_line in raw.splitlines():
+            try:
+                line = raw_line.decode("utf-8", errors="replace")
+            except AttributeError:
+                line = raw_line
+            for level in ("CRITICAL", "ERROR"):
+                marker = f" {level} "
+                if marker in line:
+                    # line format: "<docker-ts> <date> <time>,<ms> LEVEL logger message"
+                    # grab the docker timestamp (first token) for ISO output
+                    parts = line.split(" ", 1)
+                    docker_ts = parts[0].rstrip("Z").split(".")[0] if parts else ""
+                    msg_start = line.find(marker) + len(marker)
+                    # skip logger name token
+                    remainder = line[msg_start:].split(" ", 1)
+                    message = remainder[1] if len(remainder) > 1 else line[msg_start:]
+                    entries.append({
+                        "timestamp": docker_ts,
+                        "level": level,
+                        "message": message.strip(),
+                    })
+                    break
+
+        return JSONResponse({
+            "errors": entries[-20:],
+            "container_status": "running",
+        })
 
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir

@@ -349,3 +349,118 @@ def test_dashboard_video_iso_in_data_ts(client, dirs):
     resp = client.get("/")
     assert resp.status_code == 200
     assert f'data-ts="{expected_iso}"'.encode() in resp.content
+
+
+def test_api_errors_returns_empty_when_docker_unavailable(client, monkeypatch):
+    import docker
+    monkeypatch.setattr(docker, "from_env", lambda: (_ for _ in ()).throw(Exception("Docker not available")))
+    resp = client.get("/api/errors")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["errors"] == []
+    assert data["container_status"] == "unknown"
+
+
+def test_api_errors_returns_critical_when_container_not_running(client, monkeypatch):
+    import docker
+
+    class FakeContainer:
+        status = "exited"
+        def logs(self, **kwargs):
+            return b""
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/errors")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["container_status"] == "exited"
+    assert len(data["errors"]) == 1
+    assert data["errors"][0]["level"] == "CRITICAL"
+    assert "exited" in data["errors"][0]["message"]
+
+
+def test_api_errors_parses_error_lines_from_logs(client, monkeypatch):
+    import docker
+
+    log_output = (
+        b"2026-05-01T21:54:47.123456789Z 2026-05-01 21:54:47,217 ERROR scheduler Camera error: login failed\n"
+        b"2026-05-01T21:55:00.000000000Z 2026-05-01 21:55:00,000 INFO scheduler Scheduler running\n"
+        b"2026-05-01T21:56:00.000000000Z 2026-05-01 21:56:00,000 CRITICAL scheduler Configuration error: missing field\n"
+    )
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            return log_output
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/errors")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["container_status"] == "running"
+    assert len(data["errors"]) == 2
+    messages = [e["message"] for e in data["errors"]]
+    assert any("Camera error: login failed" in m for m in messages)
+    assert any("Configuration error: missing field" in m for m in messages)
+    levels = [e["level"] for e in data["errors"]]
+    assert "ERROR" in levels
+    assert "CRITICAL" in levels
+
+
+def test_api_errors_respects_since_param(client, monkeypatch):
+    import docker
+    captured_kwargs = {}
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return b""
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/errors?since=1746000000.0")
+    assert resp.status_code == 200
+    assert captured_kwargs.get("since") == 1746000000.0
+
+
+def test_api_errors_caps_at_20_results(client, monkeypatch):
+    import docker
+
+    # Generate 25 error lines
+    lines = b""
+    for i in range(25):
+        lines += f"2026-05-01T21:54:{i:02d}.000000000Z 2026-05-01 21:54:{i:02d},000 ERROR scheduler Error {i}\n".encode()
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            return lines
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/errors")
+    assert resp.status_code == 200
+    assert len(resp.json()["errors"]) == 20
