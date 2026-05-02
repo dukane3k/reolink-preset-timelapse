@@ -531,6 +531,11 @@ def create_app(
 
 def app():
     """uvicorn --factory entry point."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s,000 %(levelname)s %(name)s %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
     env_path = Path("/app/.env")
     snapshot_dir = Path(os.environ.get("SNAPSHOT_DIR", "/data/snapshots"))
     timelapse_dir = Path(os.environ.get("TIMELAPSE_DIR", "/data/timelapse"))
