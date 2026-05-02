@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Timelapse{% endblock %}
 {% block content %}
+<div id="error-banner" class="flash error" style="display:none;justify-content:space-between;align-items:flex-start;gap:12px;">
+  <span id="error-banner-text"></span>
+  <button type="button" id="error-banner-dismiss"
+          style="background:none;border:none;color:inherit;font-size:1.1rem;cursor:pointer;padding:0;line-height:1;flex-shrink:0;"
+          aria-label="Dismiss">×</button>
+</div>
+<div id="error-banner-detail" style="display:none;margin-top:-12px;margin-bottom:16px;">
+  <ul id="error-banner-list" style="margin:0;padding-left:20px;font-size:0.85rem;color:#cc3333;"></ul>
+</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
   <div class="card">
     <div class="card-label">Latest Snapshot</div>
@@ -188,6 +197,93 @@
         });
     });
   });
+})();
+</script>
+<script>
+(function () {
+  var banner = document.getElementById('error-banner');
+  var bannerText = document.getElementById('error-banner-text');
+  var bannerDetail = document.getElementById('error-banner-detail');
+  var bannerList = document.getElementById('error-banner-list');
+  var dismissBtn = document.getElementById('error-banner-dismiss');
+
+  var DISMISS_KEY = 'tl_errors_dismissed_until';
+  var lastPoll = Math.floor(Date.now() / 1000) - 3600;
+
+  function dismissedUntil() {
+    return parseFloat(localStorage.getItem(DISMISS_KEY) || '0');
+  }
+
+  function isoToUnix(iso) {
+    return iso ? Date.parse(iso.replace('T', ' ') + 'Z') / 1000 : 0;
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '';
+    var d = new Date(iso + 'Z');
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function showBanner(errors) {
+    var newest = errors.reduce(function (max, e) {
+      return isoToUnix(e.timestamp) > isoToUnix(max.timestamp) ? e : max;
+    }, errors[0]);
+
+    if (isoToUnix(newest.timestamp) <= dismissedUntil()) return;
+
+    if (errors.length === 1) {
+      bannerText.textContent = errors[0].message;
+      bannerDetail.style.display = 'none';
+    } else {
+      var since = formatTime(errors[0].timestamp);
+      bannerText.innerHTML = errors.length + ' errors since ' + since + ' — <a href="#" id="error-expand-link" style="color:inherit;">expand</a>';
+      bannerList.innerHTML = '';
+      errors.forEach(function (e) {
+        var li = document.createElement('li');
+        li.textContent = '[' + formatTime(e.timestamp) + '] ' + e.message;
+        bannerList.appendChild(li);
+      });
+      var expandLink = document.getElementById('error-expand-link');
+      if (expandLink) {
+        expandLink.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          bannerDetail.style.display = bannerDetail.style.display === 'none' ? 'block' : 'none';
+        });
+      }
+    }
+
+    banner.style.display = 'flex';
+    banner._newestTs = isoToUnix(newest.timestamp);
+  }
+
+  dismissBtn.addEventListener('click', function () {
+    if (banner._newestTs) {
+      localStorage.setItem(DISMISS_KEY, String(banner._newestTs));
+    }
+    banner.style.display = 'none';
+    bannerDetail.style.display = 'none';
+  });
+
+  function poll() {
+    var url = '/api/errors?since=' + lastPoll;
+    lastPoll = Math.floor(Date.now() / 1000);
+    fetch(url)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        var errors = data.errors || [];
+        var status = data.container_status;
+        if (errors.length > 0) {
+          showBanner(errors);
+        } else if (status !== 'running' && status !== 'unknown') {
+          showBanner([{ timestamp: new Date().toISOString().slice(0, 19), level: 'CRITICAL', message: 'Container is not running (status: ' + status + ')' }]);
+        }
+      })
+      .catch(function () { /* silently ignore poll failures */ });
+  }
+
+  poll();
+  setInterval(poll, 30000);
 })();
 </script>
 {% endblock %}
