@@ -149,6 +149,7 @@
   var logSince = null;
 
   function _friendlyLogMsg(msg) {
+    if (msg.indexOf('Aligning frame ') === 0) return msg.replace('Aligning frame ', 'Aligning frame ') + '…';
     if (msg.indexOf('Aligning ') === 0) return msg.replace('to reference...', '').trim() + '…';
     if (msg.indexOf('Aligned ') === 0) return msg + ' — encoding…';
     if (msg.indexOf('Timelapse saved:') === 0) return 'Encoding complete.';

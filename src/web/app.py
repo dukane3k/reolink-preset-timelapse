@@ -481,6 +481,7 @@ def create_app(
         "Timelapse saved:",
         "Stabilized timelapse saved:",
         "Stabilization analysis failed",
+        "Aligning frame ",
     )
     _LOG_EXCLUDE = ("crop=",)
 
