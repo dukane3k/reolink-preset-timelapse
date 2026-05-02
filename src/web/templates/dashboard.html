@@ -146,6 +146,29 @@
     }, 5000);
   }
 
+  var logSince = null;
+
+  function _friendlyLogMsg(msg) {
+    if (msg.indexOf('Aligning ') === 0) return msg.replace('to reference...', '').trim() + '…';
+    if (msg.indexOf('Aligned ') === 0) return msg + ' — encoding…';
+    if (msg.indexOf('Timelapse saved:') === 0) return 'Encoding complete.';
+    if (msg.indexOf('Stabilized timelapse saved:') === 0) return 'Encoding complete.';
+    if (msg.indexOf('Stabilization analysis failed') === 0) return 'Stabilization failed — building without stabilization…';
+    return msg;
+  }
+
+  function pollLog() {
+    if (logSince === null) return;
+    fetch('/api/log?since=' + logSince)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.lines.length) return;
+        var last = data.lines[data.lines.length - 1];
+        status.textContent = _friendlyLogMsg(last.message);
+      })
+      .catch(function () {});
+  }
+
   function poll(watch, type, since) {
     var url = '/api/status?watch=' + encodeURIComponent(watch) +
               '&type=' + encodeURIComponent(type) +
@@ -155,6 +178,7 @@
       .then(function (data) {
         if (data.ready) {
           clearTimeout(timer);
+          logSince = null;
           if (type === 'snapshot') {
             var date = watch;
             setDone('Snapshot captured.', '/snapshots?date=' + encodeURIComponent(date));
@@ -162,6 +186,7 @@
             setDone('Ready.', '/videos?video=' + encodeURIComponent(data.file || watch));
           }
         } else {
+          if (type === 'permanent') pollLog();
           timer = setTimeout(function () { poll(watch, type, since); }, 2000);
         }
       })
@@ -190,6 +215,7 @@
           return r.json();
         })
         .then(function (data) {
+          if (data.type === 'permanent') logSince = data.since;
           poll(data.watch, data.type, data.since);
         })
         .catch(function (err) {

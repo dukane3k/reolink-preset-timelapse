@@ -474,6 +474,50 @@ def create_app(
             "container_status": "running",
         })
 
+    # Build progress lines to surface in the dashboard
+    _LOG_PREFIXES = (
+        "Aligning ",
+        "Aligned ",
+        "Timelapse saved:",
+        "Stabilized timelapse saved:",
+        "Stabilization analysis failed",
+    )
+    _LOG_EXCLUDE = ("crop=",)
+
+    @app.get("/api/log")
+    def api_log(since: float | None = None):
+        import time
+        import docker as docker_sdk
+        if since is None:
+            since = time.time() - 3600
+        try:
+            dc = docker_sdk.from_env()
+            container = dc.containers.get("reolink-preset-timelapse")
+            raw = container.logs(since=since, timestamps=True)
+        except Exception:
+            return JSONResponse({"lines": []})
+
+        lines = []
+        for raw_line in raw.splitlines():
+            try:
+                line = raw_line.decode("utf-8", errors="replace")
+            except AttributeError:
+                line = raw_line
+            parts = line.split(" ", 5)
+            if len(parts) < 6:
+                continue
+            if parts[3] != "INFO":
+                continue
+            message = parts[5].strip()
+            if not any(message.startswith(p) for p in _LOG_PREFIXES):
+                continue
+            if any(x in message for x in _LOG_EXCLUDE):
+                continue
+            docker_ts = parts[0].rstrip("Z").split(".")[0]
+            lines.append({"timestamp": docker_ts, "message": message})
+
+        return JSONResponse({"lines": lines[-50:]})
+
     # Store for use by route functions defined in later tasks
     app.state.snapshot_dir = snapshot_dir
     app.state.timelapse_dir = timelapse_dir

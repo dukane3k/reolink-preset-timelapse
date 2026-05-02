@@ -544,3 +544,69 @@ def test_api_errors_default_since_is_one_hour_ago(client, monkeypatch):
     after = time.time() - 3600
     assert resp.status_code == 200
     assert before <= captured_kwargs.get("since", 0) <= after + 1
+
+
+def test_api_log_returns_empty_when_docker_unavailable(client, monkeypatch):
+    import docker
+    monkeypatch.setattr(docker, "from_env", lambda: (_ for _ in ()).throw(Exception("no docker")))
+    resp = client.get("/api/log")
+    assert resp.status_code == 200
+    assert resp.json()["lines"] == []
+
+
+def test_api_log_returns_matching_build_lines(client, monkeypatch):
+    import docker
+
+    log_output = (
+        b"2026-05-02T10:48:10.000000000Z 2026-05-02 10:48:10,000 INFO src.timelapse Aligning 312 frames to reference...\n"
+        b"2026-05-02T10:48:10.100000000Z 2026-05-02 10:48:10,100 INFO src.alignment Aligning 312 frames, crop=5% \xe2\x86\x92 3456x1944\n"
+        b"2026-05-02T10:52:00.000000000Z 2026-05-02 10:52:00,000 INFO src.alignment Aligned 312 frames\n"
+        b"2026-05-02T10:52:05.000000000Z 2026-05-02 10:52:05,000 INFO scheduler Next capture in 900 seconds\n"
+        b"2026-05-02T10:52:10.000000000Z 2026-05-02 10:52:10,000 INFO src.timelapse Timelapse saved: /data/timelapse/timelapse_permanent_2026-05-02_10-52-10.mp4\n"
+    )
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            return log_output
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/log")
+    assert resp.status_code == 200
+    lines = resp.json()["lines"]
+    messages = [l["message"] for l in lines]
+    # Should include aligning/aligned/saved lines but not scheduler noise
+    assert any("Aligning 312 frames to reference" in m for m in messages)
+    assert any("Aligned 312 frames" in m for m in messages)
+    assert any("Timelapse saved" in m for m in messages)
+    assert not any("Next capture" in m for m in messages)
+    # alignment detail line (crop=...) should be excluded too
+    assert not any("crop=" in m for m in messages)
+
+
+def test_api_log_respects_since_param(client, monkeypatch):
+    import docker
+    captured_kwargs = {}
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return b""
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/log?since=1746100000.0")
+    assert resp.status_code == 200
+    assert captured_kwargs.get("since") == 1746100000.0
