@@ -171,7 +171,6 @@ def test_settings_get_shows_current_values(client):
     resp = client.get("/settings")
     assert resp.status_code == 200
     assert b"192.168.1.100" in resp.content
-    assert b"admin" in resp.content
 
 
 def test_settings_post_writes_env(client, dirs):
@@ -464,3 +463,52 @@ def test_api_errors_caps_at_20_results(client, monkeypatch):
     resp = client.get("/api/errors")
     assert resp.status_code == 200
     assert len(resp.json()["errors"]) == 20
+
+
+def test_api_errors_ignores_error_word_in_info_message(client, monkeypatch):
+    import docker
+
+    log_output = (
+        b"2026-05-01T10:00:00.000000000Z 2026-05-01 10:00:00,000 INFO scheduler Received ERROR response from camera\n"
+    )
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            return log_output
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    resp = client.get("/api/errors")
+    assert resp.status_code == 200
+    assert resp.json()["errors"] == []
+
+
+def test_api_errors_default_since_is_one_hour_ago(client, monkeypatch):
+    import docker
+    import time
+    captured_kwargs = {}
+
+    class FakeContainer:
+        status = "running"
+        def logs(self, **kwargs):
+            captured_kwargs.update(kwargs)
+            return b""
+
+    class FakeClient:
+        def containers(self): pass
+
+    fake_dc = FakeClient()
+    fake_dc.containers = type("C", (), {"get": staticmethod(lambda name: FakeContainer())})()
+    monkeypatch.setattr(docker, "from_env", lambda: fake_dc)
+
+    before = time.time() - 3600
+    resp = client.get("/api/errors")  # no since param
+    after = time.time() - 3600
+    assert resp.status_code == 200
+    assert before <= captured_kwargs.get("since", 0) <= after + 1

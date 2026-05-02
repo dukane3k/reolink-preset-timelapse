@@ -409,10 +409,10 @@ def create_app(
         return JSONResponse({"ready": False})
 
     @app.get("/api/errors")
-    def api_errors(since: float = 0.0):
+    def api_errors(since: float | None = None):
         import time
         import docker as docker_sdk
-        if since == 0.0:
+        if since is None:
             since = time.time() - 3600
         try:
             dc = docker_sdk.from_env()
@@ -421,7 +421,7 @@ def create_app(
                 import datetime
                 return JSONResponse({
                     "errors": [{
-                        "timestamp": datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
+                        "timestamp": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0, tzinfo=None).isoformat(),
                         "level": "CRITICAL",
                         "message": f"Container is not running (status: {container.status})",
                     }],
@@ -437,23 +437,18 @@ def create_app(
                 line = raw_line.decode("utf-8", errors="replace")
             except AttributeError:
                 line = raw_line
-            for level in ("CRITICAL", "ERROR"):
-                marker = f" {level} "
-                if marker in line:
-                    # line format: "<docker-ts> <date> <time>,<ms> LEVEL logger message"
-                    # grab the docker timestamp (first token) for ISO output
-                    parts = line.split(" ", 1)
-                    docker_ts = parts[0].rstrip("Z").split(".")[0] if parts else ""
-                    msg_start = line.find(marker) + len(marker)
-                    # skip logger name token
-                    remainder = line[msg_start:].split(" ", 1)
-                    message = remainder[1] if len(remainder) > 1 else line[msg_start:]
-                    entries.append({
-                        "timestamp": docker_ts,
-                        "level": level,
-                        "message": message.strip(),
-                    })
-                    break
+            parts = line.split(" ", 5)  # [docker_ts, date, time_ms, level, logger, message]
+            if len(parts) < 6:
+                continue
+            level = parts[3]
+            if level not in ("ERROR", "CRITICAL"):
+                continue
+            docker_ts = parts[0].rstrip("Z").split(".")[0]
+            entries.append({
+                "timestamp": docker_ts,
+                "level": level,
+                "message": parts[5].strip(),
+            })
 
         return JSONResponse({
             "errors": entries[-20:],
