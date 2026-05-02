@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Timelapse{% endblock %}
 {% block content %}
-<div id="error-banner" class="flash error" style="display:none;justify-content:space-between;align-items:flex-start;gap:12px;">
+<div id="error-banner" role="alert" class="flash error" style="display:none;justify-content:space-between;align-items:flex-start;gap:12px;">
   <span id="error-banner-text"></span>
   <button type="button" id="error-banner-dismiss"
           style="background:none;border:none;color:inherit;font-size:1.1rem;cursor:pointer;padding:0;line-height:1;flex-shrink:0;"
@@ -211,7 +211,7 @@
   var lastPoll = Math.floor(Date.now() / 1000) - 3600;
 
   function dismissedUntil() {
-    return parseFloat(localStorage.getItem(DISMISS_KEY) || '0');
+    try { return parseFloat(localStorage.getItem(DISMISS_KEY) || '0'); } catch (e) { return 0; }
   }
 
   function isoToUnix(iso) {
@@ -258,7 +258,7 @@
 
   dismissBtn.addEventListener('click', function () {
     if (banner._newestTs) {
-      localStorage.setItem(DISMISS_KEY, String(banner._newestTs));
+      try { localStorage.setItem(DISMISS_KEY, String(banner._newestTs)); } catch (e) {}
     }
     banner.style.display = 'none';
     bannerDetail.style.display = 'none';
