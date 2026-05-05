@@ -223,15 +223,37 @@ def _video_filters(ass_file: str | None) -> str:
     filters = []
     if ass_file:
         filters.append(f"ass={ass_file}")
+    # scale to even dimensions, then force limited-range yuv420p so Safari's
+    # hardware decoder doesn't get yuvj420p (full-range JPEG variant)
     filters.append("scale=trunc(iw/2)*2:trunc(ih/2)*2")
+    filters.append("format=yuv420p")
     return ",".join(filters)
+
+
+# Flags shared by both encode paths:
+# - CRF 23 + maxrate/bufsize: CRF alone at 4K still allows 150+ Mbps on
+#   complex frames. Cap at 8 Mbps so Safari can stream without stalling —
+#   the video is ~10s so the whole file should be under 10 MB.
+# - bt709: required for Safari's hardware decoder on HD/UHD content
+_ENCODE_FLAGS = [
+    "-c:v", "libx264",
+    "-crf", "23",
+    "-maxrate", "8M",
+    "-bufsize", "16M",
+    "-preset", "fast",
+    "-color_range", "tv",
+    "-colorspace", "bt709",
+    "-color_primaries", "bt709",
+    "-color_trc", "bt709",
+    "-movflags", "+faststart",
+]
 
 
 def _build_simple(list_file: str, srt_file: str | None, ass_file: str | None, tmp_output: Path, output: Path, fps: int = 25) -> None:
     cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
     if srt_file:
         cmd += ["-i", srt_file]
-    cmd += ["-vf", _video_filters(ass_file), "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+    cmd += ["-vf", _video_filters(ass_file), "-r", str(fps)] + _ENCODE_FLAGS
     if srt_file:
         cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
     cmd.append(str(tmp_output))
@@ -273,12 +295,13 @@ def _build_stabilized(list_file: str, srt_file: str | None, ass_file: str | None
         if ass_file:
             filters.append(f"ass={ass_file}")
         filters.append("scale=trunc(iw/2)*2:trunc(ih/2)*2")
+        filters.append("format=yuv420p")
         vf = ",".join(filters)
 
         cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file]
         if srt_file:
             cmd += ["-i", srt_file]
-        cmd += ["-vf", vf, "-r", str(fps), "-c:v", "libx264", "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+        cmd += ["-vf", vf, "-r", str(fps)] + _ENCODE_FLAGS
         if srt_file:
             cmd += ["-c:s", "mov_text", "-map", "0:v", "-map", "1:s"]
         cmd.append(str(tmp_output))
