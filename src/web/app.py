@@ -301,13 +301,12 @@ def create_app(
                 "subtitles": cfg.timelapse_subtitles,
                 "subtitle_every": cfg.timelapse_subtitle_every,
                 "burnin": cfg.timelapse_burnin,
-                "burnin_every": cfg.timelapse_burnin_every,
             }
         except Exception:
             defaults = {
                 "fps": 24, "align": True, "stabilize": False,
                 "stabilize_crop": 5, "stabilize_smoothing": 5, "stabilize_shakiness": 5,
-                "subtitles": True, "subtitle_every": 1, "burnin": False, "burnin_every": 30,
+                "subtitles": True, "subtitle_every": 1, "burnin": False,
             }
         all_dates = sorted(
             [d.name for d in snapshot_dir.iterdir() if d.is_dir()],
@@ -432,7 +431,6 @@ def create_app(
                     subtitles=cfg.timelapse_subtitles,
                     subtitle_every=cfg.timelapse_subtitle_every,
                     burnin=cfg.timelapse_burnin,
-                    burnin_every_minutes=cfg.timelapse_burnin_every,
                 )
             except Exception as exc:
                 logging.getLogger("web.actions").error("Timelapse build failed: %s", exc)
@@ -484,7 +482,6 @@ def create_app(
                     subtitles=cfg.timelapse_subtitles,
                     subtitle_every=cfg.timelapse_subtitle_every,
                     burnin=cfg.timelapse_burnin,
-                    burnin_every_minutes=cfg.timelapse_burnin_every,
                 )
             except Exception as exc:
                 logging.getLogger("web.actions").error("Permanent timelapse build failed: %s", exc)
@@ -585,10 +582,6 @@ def create_app(
         except ValueError:
             subtitle_every = 1
         burnin = form.get("burnin", "false").lower() in ("true", "1", "yes")
-        try:
-            burnin_every = int(form.get("burnin_every") or "30")
-        except ValueError:
-            burnin_every = 30
 
         custom_dir = timelapse_dir / "custom"
         custom_dir.mkdir(exist_ok=True)
@@ -607,7 +600,7 @@ def create_app(
                     stabilize_smoothing=stabilize_smoothing,
                     stabilize_shakiness=stabilize_shakiness,
                     subtitles=subtitles, subtitle_every=subtitle_every,
-                    burnin=burnin, burnin_every_minutes=burnin_every,
+                    burnin=burnin,
                 )
             except Exception as exc:
                 logging.getLogger("web.actions").error("Custom timelapse build failed: %s", exc)

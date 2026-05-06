@@ -224,18 +224,12 @@
       </div>
     </div>
     <div class="field-row">
-      <label>Burn-in timestamps</label>
+      <label>Burn-in timestamps<span style="display:block;color:#aaa;font-size:0.75rem;font-weight:400;margin-top:2px;">Date &amp; time on every frame</span></label>
       <div class="field-input">
         <select name="burnin" id="burnin">
           <option value="false" {% if not defaults.burnin %}selected{% endif %}>Disabled</option>
           <option value="true" {% if defaults.burnin %}selected{% endif %}>Enabled</option>
         </select>
-      </div>
-    </div>
-    <div class="field-row" data-child-of="burnin">
-      <label>Burn-in every N minutes</label>
-      <div class="field-input">
-        <input type="number" name="burnin_every" value="{{ defaults.burnin_every }}">
       </div>
     </div>
   </div>
@@ -244,9 +238,13 @@
   <div class="card" style="margin-bottom:14px;">
     <div class="card-label">Output</div>
     <div class="field-row">
-      <label>Video name</label>
+      <label>
+        Video name
+        <span id="name-hint" style="display:block;color:#aaa;font-size:0.75rem;font-weight:400;margin-top:3px;">Required to enable build</span>
+      </label>
       <div class="field-input">
-        <input type="text" name="name" id="video_name" maxlength="60" placeholder="e.g. Spring Growth" required>
+        <input type="text" name="name" id="video_name" maxlength="60" placeholder="e.g. Spring Growth" required
+               style="border-color:#e5e2dc;transition:border-color 0.15s;">
       </div>
     </div>
   </div>
@@ -256,10 +254,21 @@
     <button type="submit" id="build-btn" class="btn btn-primary" disabled>
       ▶ Build Timelapse
     </button>
-    <span style="color:#bbb;font-size:0.8rem;">Output saved to Videos → Custom</span>
+  </div>
+
+  <!-- Build progress (hidden until submit) -->
+  <div id="build-progress" style="display:none;margin-top:16px;align-items:center;gap:10px;">
+    <svg id="build-spinner" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2.5" stroke-linecap="round"
+         style="flex-shrink:0;animation:spin 0.9s linear infinite;">
+      <path d="M12 2a10 10 0 0 1 10 10"/>
+    </svg>
+    <span id="build-status-text" style="color:#888;font-size:0.875rem;">Building…</span>
   </div>
 
 </form>
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 <script>
 (function () {
@@ -267,7 +276,6 @@
   var disabledWhen = {
     stabilize: "false",
     subtitles: "false",
-    burnin: "false",
   };
   function applyChildState(parentId) {
     var parent = document.getElementById(parentId);
@@ -369,7 +377,17 @@
 
   function updateBuildBtn(frames) {
     var name = document.getElementById("video_name").value.trim();
+    var ready = frames > 0 && !name;
     document.getElementById("build-btn").disabled = frames === 0 || !name;
+    var nameInput = document.getElementById("video_name");
+    var hint = document.getElementById("name-hint");
+    if (ready) {
+      nameInput.style.borderColor = "#f0a000";
+      hint.style.color = "#f0a000";
+    } else {
+      nameInput.style.borderColor = "";
+      hint.style.color = "#aaa";
+    }
   }
 
   var previewFields = ["start_date", "end_date", "start_time", "end_time",
@@ -383,13 +401,97 @@
     }
   });
 
-  document.getElementById("video_name").addEventListener("input", function () {
+  var nameInput = document.getElementById("video_name");
+  nameInput.addEventListener("input", function () {
     var frames = parseInt(document.getElementById("preview-frames").textContent, 10) || 0;
     updateBuildBtn(frames);
+    var hint = document.getElementById("name-hint");
+    if (nameInput.value.trim()) {
+      hint.style.display = "none";
+      nameInput.style.borderColor = "";
+    } else {
+      hint.style.display = "block";
+      nameInput.style.borderColor = "#e5e2dc";
+    }
   });
 
   updatePreviewFps();
   fetchPreview();
+
+  // --- Build submission via fetch with inline progress ---
+  var logSince = null;
+  var pollTimer = null;
+
+  function _friendlyLogMsg(msg) {
+    if (msg.indexOf('Aligning frame ') === 0) return msg + '…';
+    if (msg.indexOf('Aligning ') === 0) return msg.replace('to reference...', '').trim() + '…';
+    if (msg.indexOf('Aligned ') === 0) return msg + ' — encoding…';
+    if (msg.indexOf('Timelapse saved:') === 0) return 'Encoding complete.';
+    if (msg.indexOf('Stabilized timelapse saved:') === 0) return 'Encoding complete.';
+    return msg;
+  }
+
+  function pollLog() {
+    if (logSince === null) return;
+    fetch('/api/log?since=' + logSince)
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.lines.length) return;
+        var last = data.lines[data.lines.length - 1];
+        document.getElementById("build-status-text").textContent = _friendlyLogMsg(last.message);
+      })
+      .catch(function () {});
+  }
+
+  function pollStatus(watch, type, since) {
+    fetch('/api/status?watch=' + encodeURIComponent(watch) + '&type=' + encodeURIComponent(type) + '&since=' + encodeURIComponent(since))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ready) {
+          clearTimeout(pollTimer);
+          logSince = null;
+          window.location.href = '/videos?video=' + encodeURIComponent(data.file || watch);
+        } else {
+          pollLog();
+          pollTimer = setTimeout(function () { pollStatus(watch, type, since); }, 2000);
+        }
+      })
+      .catch(function () {
+        pollTimer = setTimeout(function () { pollStatus(watch, type, since); }, 2000);
+      });
+  }
+
+  document.getElementById("designer-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var btn = document.getElementById("build-btn");
+    var progress = document.getElementById("build-progress");
+    btn.disabled = true;
+    btn.textContent = "Building…";
+    progress.style.display = "flex";
+    document.getElementById("build-status-text").textContent = "Starting build…";
+
+    var formData = new FormData(document.getElementById("designer-form"));
+    fetch("/actions/timelapse/custom", {
+      method: "POST",
+      headers: { "Accept": "application/json" },
+      body: formData,
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("Server error");
+        return r.json();
+      })
+      .then(function (data) {
+        logSince = data.since;
+        document.getElementById("build-status-text").textContent = "Building custom timelapse…";
+        pollStatus(data.watch, data.type, data.since);
+      })
+      .catch(function (err) {
+        progress.style.display = "none";
+        btn.disabled = false;
+        btn.textContent = "▶ Build Timelapse";
+        alert("Build failed: " + err.message);
+      });
+  });
 })();
 </script>
 {% endblock %}

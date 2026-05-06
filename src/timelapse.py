@@ -80,18 +80,10 @@ def _ass_timestamp(td: timedelta) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def _write_burnin_ass(
-    snapshots: list[Path],
-    fps: int,
-    every_minutes: int,
-    display_seconds: float = 5.0,
-    fade_seconds: float = 1.0,
-) -> str:
-    """Write an ASS subtitle file with bottom-right timestamps that fade out after display_seconds."""
+def _write_burnin_ass(snapshots: list[Path], fps: int) -> str:
+    """Write an ASS subtitle file with a timestamp burned in on every frame."""
     frame_duration = 1.0 / fps
-    fade_ms = int(fade_seconds * 1000)
 
-    # ASS header — alignment=3 is bottom-right in numpad layout
     header = (
         "[Script Info]\n"
         "ScriptType: v4.00+\n"
@@ -102,51 +94,19 @@ def _write_burnin_ass(
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
         "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        # white text, no outline, soft drop shadow, bottom-right, letter spacing 3
         "Style: Burnin,Liberation Sans,56,&H00FFFFFF,&H000000FF,&H00000000,&HAA000000,"
         "0,0,0,0,100,100,3,0,0,0,3,3,10,10,20,1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
 
-    # Parse all snapshot datetimes upfront
-    dts = [_parse_snapshot_dt(s) for s in snapshots]
-    first_dt = next((d for d in dts if d is not None), None)
-    if first_dt is None:
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".ass", delete=False, encoding="utf-8") as f:
-            f.write(header)
-            return f.name
-
-    # Collect emit frames first so we can cap each entry at the next one's start
-    emit_frames: list[tuple[int, str]] = []
-    last_bucket = -1
-    for i, (snap, dt) in enumerate(zip(snapshots, dts)):
-        if dt is None:
-            continue
-        elapsed_minutes = (dt - first_dt).total_seconds() / 60
-        bucket = int(elapsed_minutes) // every_minutes
-        if bucket == last_bucket:
-            continue
-        last_bucket = bucket
-        label = dt.strftime("%m/%d/%Y %H:%M")
-        emit_frames.append((i, label))
-
     lines = []
-    for idx, (i, label) in enumerate(emit_frames):
-        start_sec = i * frame_duration
-        # End no later than the next entry's start to prevent stacking
-        if idx + 1 < len(emit_frames):
-            next_start_sec = emit_frames[idx + 1][0] * frame_duration
-            end_sec = min(start_sec + display_seconds, next_start_sec)
-        else:
-            end_sec = start_sec + display_seconds
-        # Only fade out if the timestamp has the full display window; otherwise hard-cut
-        display_ms = int((end_sec - start_sec) * 1000)
-        fade_out_ms = fade_ms if display_ms >= int(display_seconds * 1000) else 0
-        start = _ass_timestamp(timedelta(seconds=start_sec))
-        end = _ass_timestamp(timedelta(seconds=end_sec))
-        text = f"{{\\fad(0,{fade_out_ms})}}{label.upper()}"
-        lines.append(f"Dialogue: 0,{start},{end},Burnin,,0,0,0,,{text}")
+    for i, snap in enumerate(snapshots):
+        dt = _parse_snapshot_dt(snap)
+        label = dt.strftime("%m/%d/%Y %H:%M") if dt else snap.stem
+        start = _ass_timestamp(timedelta(seconds=i * frame_duration))
+        end = _ass_timestamp(timedelta(seconds=(i + 1) * frame_duration))
+        lines.append(f"Dialogue: 0,{start},{end},Burnin,,0,0,0,,{label.upper()}")
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".ass", delete=False, encoding="utf-8") as f:
         f.write(header)
@@ -182,7 +142,6 @@ def build_timelapse(
     subtitles: bool = True,
     subtitle_every: int = 1,
     burnin: bool = False,
-    burnin_every_minutes: int = 30,
 ) -> None:
     if not snapshots:
         log.warning("No snapshots available, skipping timelapse build")
@@ -201,7 +160,7 @@ def build_timelapse(
         tmp_output = output.with_suffix(".tmp.mp4")
         list_file = _write_concat_list(snapshots, fps)
         srt_file = _write_srt(snapshots, fps, every=subtitle_every) if subtitles else None
-        ass_file = _write_burnin_ass(snapshots, fps, every_minutes=burnin_every_minutes) if burnin else None
+        ass_file = _write_burnin_ass(snapshots, fps) if burnin else None
 
         try:
             if stabilize:
