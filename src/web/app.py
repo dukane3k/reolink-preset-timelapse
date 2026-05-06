@@ -256,6 +256,8 @@ def create_app(
     @app.get("/designer", response_class=HTMLResponse)
     def designer_page(request: Request):
         from src.config import Config
+        from datetime import date as _date
+        today_date = _date.today().isoformat()
         env_vals = dotenv_values(str(env_path))
         for k, v in env_vals.items():
             os.environ[k] = v or ""
@@ -286,6 +288,7 @@ def create_app(
             "designer.html", request, "designer",
             all_dates=all_dates,
             defaults=defaults,
+            today_date=today_date,
         )
 
     @app.get("/api/designer/frames")

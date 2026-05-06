@@ -75,11 +75,11 @@
       <div class="date-pair">
         <input type="date" name="start_date" id="start_date"
                min="{{ all_dates[0] if all_dates else '' }}"
-               max="{{ all_dates[-1] if all_dates else '' }}"
+               max="{{ today_date }}"
                value="{{ all_dates[0] if all_dates else '' }}" required>
         <input type="date" name="end_date" id="end_date"
                min="{{ all_dates[0] if all_dates else '' }}"
-               max="{{ all_dates[-1] if all_dates else '' }}"
+               max="{{ today_date }}"
                value="{{ all_dates[-1] if all_dates else '' }}" required>
       </div>
     </div>
@@ -254,10 +254,7 @@
   <!-- Build -->
   <div style="display:flex;gap:12px;align-items:center;margin-top:4px;">
     <button type="submit" id="build-btn" class="btn btn-primary" disabled>
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="5 3 19 12 5 21 5 3"/>
-      </svg>
-      Build Timelapse
+      ▶ Build Timelapse
     </button>
     <span style="color:#bbb;font-size:0.8rem;">Output saved to Videos → Custom</span>
   </div>
@@ -334,8 +331,8 @@
 
     if (!startDate || !endDate) return;
 
-    document.getElementById("preview-frames").textContent = "...";
-    document.getElementById("preview-duration").textContent = "...";
+    document.getElementById("preview-frames").textContent = "—";
+    document.getElementById("preview-duration").textContent = "—";
 
     var url = "/api/designer/frames?start_date=" + encodeURIComponent(startDate)
       + "&end_date=" + encodeURIComponent(endDate)
@@ -356,7 +353,7 @@
         var summary = document.getElementById("preview-summary");
         if (frames === 0) {
           summary.className = "preview-error";
-          summary.textContent = "No frames found for this selection";
+          summary.textContent = "No frames found";
         } else {
           summary.className = "preview-summary";
           summary.textContent = startDate + " - " + endDate + "  |  " + startTime + " - " + endTime;
