@@ -151,6 +151,9 @@
     {{ select("TIMELAPSE_BURNIN", "Burn-in Timestamps", [
         ("false","Disabled"),("true","Enabled")
     ]) }}
+    {{ select("TIMELAPSE_BURNIN_FORMAT", "Burn-in Format", [
+        ("datetime","Date &amp; Time"),("date","Date Only"),("time","Time Only")
+    ], child_of="TIMELAPSE_BURNIN") }}
   </div>
 
   <div class="card" style="margin-bottom:16px;">

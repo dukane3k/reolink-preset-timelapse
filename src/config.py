@@ -69,6 +69,7 @@ class Config:
     timelapse_subtitles: bool
     timelapse_subtitle_every: int
     timelapse_burnin: bool
+    timelapse_burnin_format: str  # "datetime" | "date" | "time"
     timelapse_daily_mode: str  # "day_only" | "cumulative"
 
     @classmethod
@@ -104,5 +105,6 @@ class Config:
             timelapse_subtitles=_bool("TIMELAPSE_SUBTITLES", True),
             timelapse_subtitle_every=_int("TIMELAPSE_SUBTITLE_EVERY", 1),
             timelapse_burnin=_bool("TIMELAPSE_BURNIN", False),
+            timelapse_burnin_format=os.environ.get("TIMELAPSE_BURNIN_FORMAT", "datetime").strip() or "datetime",
             timelapse_daily_mode=os.environ.get("TIMELAPSE_DAILY_MODE", "day_only").strip() or "day_only",
         )

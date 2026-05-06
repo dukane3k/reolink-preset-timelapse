@@ -80,7 +80,7 @@ def _ass_timestamp(td: timedelta) -> str:
     return f"{h}:{m:02d}:{s:02d}.{cs:02d}"
 
 
-def _write_burnin_ass(snapshots: list[Path], fps: int) -> str:
+def _write_burnin_ass(snapshots: list[Path], fps: int, fmt: str = "datetime") -> str:
     """Write an ASS subtitle file with a timestamp burned in on every frame."""
     frame_duration = 1.0 / fps
 
@@ -103,7 +103,15 @@ def _write_burnin_ass(snapshots: list[Path], fps: int) -> str:
     lines = []
     for i, snap in enumerate(snapshots):
         dt = _parse_snapshot_dt(snap)
-        label = dt.strftime("%m/%d/%Y %H:%M") if dt else snap.stem
+        if dt:
+            if fmt == "date":
+                label = dt.strftime("%m/%d/%Y")
+            elif fmt == "time":
+                label = dt.strftime("%H:%M")
+            else:
+                label = dt.strftime("%m/%d/%Y %H:%M")
+        else:
+            label = snap.stem
         start = _ass_timestamp(timedelta(seconds=i * frame_duration))
         end = _ass_timestamp(timedelta(seconds=(i + 1) * frame_duration))
         lines.append(f"Dialogue: 0,{start},{end},Burnin,,0,0,0,,{label.upper()}")
@@ -142,6 +150,7 @@ def build_timelapse(
     subtitles: bool = True,
     subtitle_every: int = 1,
     burnin: bool = False,
+    burnin_format: str = "datetime",
 ) -> None:
     if not snapshots:
         log.warning("No snapshots available, skipping timelapse build")
@@ -160,7 +169,7 @@ def build_timelapse(
         tmp_output = output.with_suffix(".tmp.mp4")
         list_file = _write_concat_list(snapshots, fps)
         srt_file = _write_srt(snapshots, fps, every=subtitle_every) if subtitles else None
-        ass_file = _write_burnin_ass(snapshots, fps) if burnin else None
+        ass_file = _write_burnin_ass(snapshots, fps, fmt=burnin_format) if burnin else None
 
         try:
             if stabilize:
