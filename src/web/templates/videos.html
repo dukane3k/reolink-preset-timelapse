@@ -1,13 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Videos — Timelapse{% endblock %}
 {% block content %}
-{% if not daily and not permanent %}
+{% if not daily and not permanent and not custom_videos %}
   <p class="empty-state">No videos found.</p>
 {% else %}
 <div style="display:grid;grid-template-columns:200px 1fr;gap:16px;">
   <div>
+    {% if custom_videos %}
+      <div class="card-label" style="margin-bottom:8px;">Custom</div>
+      {% for v, display_name in custom_videos %}
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
+          <a href="/videos?video={{ v }}"
+             style="flex:1;min-width:0;display:block;padding:6px 10px;border-radius:4px;font-size:0.8rem;text-decoration:none;word-break:break-all;
+                    {% if v == selected %}background:#1a1a1a;color:#fff;{% else %}background:#f5f4f0;color:#555;{% endif %}">
+            {{ display_name }}
+          </a>
+          <button class="delete-btn" data-url="/api/videos/custom/{{ v }}" data-confirm="{{ v }}"
+                  style="flex-shrink:0;background:none;border:none;cursor:pointer;padding:4px;color:#bbb;line-height:1;"
+                  title="Delete {{ v }}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
+        </div>
+      {% endfor %}
+    {% endif %}
     {% if daily %}
-      <div class="card-label" style="margin-bottom:8px;">Daily</div>
+      <div class="card-label" style="{% if custom_videos %}margin-top:14px;{% endif %}margin-bottom:8px;">Daily</div>
       {% for v in daily %}
         <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px;">
           <a href="/videos?video={{ v }}"

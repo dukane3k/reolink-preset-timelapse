@@ -830,3 +830,22 @@ def test_api_status_custom_type(client, dirs):
     resp = client.get(f"/api/status?watch={fname}&type=custom&since={since}")
     assert resp.status_code == 200
     assert resp.json()["ready"] is True
+
+
+def test_videos_page_shows_custom_section(client, dirs):
+    """Custom videos section appears when custom videos exist."""
+    custom_dir = dirs["video_dir"] / "custom"
+    custom_dir.mkdir(parents=True, exist_ok=True)
+    video = custom_dir / "timelapse_custom_spring-growth_2026-05-06_10-00-00.mp4"
+    video.write_bytes(b"fake")
+    resp = client.get("/videos")
+    assert resp.status_code == 200
+    assert b"Custom" in resp.content
+    assert b"Spring Growth" in resp.content  # title-cased name
+
+
+def test_designer_link_in_nav(client, dirs):
+    """Designer link appears in every page nav."""
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b'href="/designer"' in resp.content

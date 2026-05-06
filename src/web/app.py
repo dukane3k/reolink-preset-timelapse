@@ -81,6 +81,9 @@ def create_app(
         perm = (timelapse_dir / "permanent" / filename).resolve()
         if str(perm).startswith(str(root)) and perm.is_file():
             return FileResponse(str(perm))
+        custom = (timelapse_dir / "custom" / filename).resolve()
+        if str(custom).startswith(str(root)) and custom.is_file():
+            return FileResponse(str(custom))
         return JSONResponse({"detail": "Not found"}, status_code=404)
 
     # --- Dashboard ---
@@ -159,6 +162,23 @@ def create_app(
 
     # --- Videos ---
 
+    def _custom_display_name(filename: str) -> str:
+        """Derive human-readable name from a custom timelapse filename.
+
+        e.g. 'timelapse_custom_spring-growth_2026-05-06_10-00-00.mp4'
+             -> 'Spring Growth'
+        """
+        # Strip prefix and .mp4 suffix
+        name = filename
+        if name.startswith("timelapse_custom_"):
+            name = name[len("timelapse_custom_"):]
+        if name.endswith(".mp4"):
+            name = name[:-4]
+        # Strip _YYYY-MM-DD_HH-MM-SS suffix (last 19 chars)
+        if len(name) >= 19 and _re.search(r'_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$', name):
+            name = name[:-20]  # underscore + 19 chars
+        return name.replace("-", " ").title()
+
     @app.get("/videos", response_class=HTMLResponse)
     def videos_page(request: Request, video: str = ""):
         daily = sorted(
@@ -171,13 +191,22 @@ def create_app(
             reverse=True,
         ) if perm_dir.exists() else []
 
-        all_videos = set(daily) | set(permanent)
+        custom_dir = timelapse_dir / "custom"
+        custom_dir.mkdir(exist_ok=True)
+        custom_filenames = sorted(
+            [f.name for f in custom_dir.glob("timelapse_custom_*.mp4")],
+            reverse=True,
+        )
+        custom_videos = [(fn, _custom_display_name(fn)) for fn in custom_filenames]
+
+        all_videos = set(daily) | set(permanent) | set(custom_filenames)
         selected = video if video in all_videos else (daily[0] if daily else (permanent[0] if permanent else ""))
 
         return app.state.render(
             "videos.html", request, "videos",
             daily=daily,
             permanent=permanent,
+            custom_videos=custom_videos,
             selected=selected,
         )
 
