@@ -174,9 +174,8 @@ def create_app(
             name = name[len("timelapse_custom_"):]
         if name.endswith(".mp4"):
             name = name[:-4]
-        # Strip _YYYY-MM-DD_HH-MM-SS suffix (last 19 chars)
-        if len(name) >= 19 and _re.search(r'_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$', name):
-            name = name[:-20]  # underscore + 19 chars
+        # Strip _YYYY-MM-DD_HH-MM-SS suffix
+        name = _re.sub(r'_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$', '', name)
         return name.replace("-", " ").title()
 
     @app.get("/videos", response_class=HTMLResponse)
@@ -192,11 +191,11 @@ def create_app(
         ) if perm_dir.exists() else []
 
         custom_dir = timelapse_dir / "custom"
-        custom_dir.mkdir(exist_ok=True)
-        custom_filenames = sorted(
-            [f.name for f in custom_dir.glob("timelapse_custom_*.mp4")],
-            reverse=True,
-        )
+        if custom_dir.exists():
+            raw = sorted(custom_dir.glob("timelapse_custom_*.mp4"), reverse=True)
+        else:
+            raw = []
+        custom_filenames = [f.name for f in raw]
         custom_videos = [(fn, _custom_display_name(fn)) for fn in custom_filenames]
 
         all_videos = set(daily) | set(permanent) | set(custom_filenames)
