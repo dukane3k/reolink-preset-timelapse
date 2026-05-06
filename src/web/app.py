@@ -301,6 +301,10 @@ def create_app(
     ):
         if not start_date or not end_date:
             return JSONResponse({"frames": 0, "duration_seconds": 0})
+        if not _DESIGNER_DATE_RE.match(start_date) or not _DESIGNER_DATE_RE.match(end_date):
+            return JSONResponse({"frames": 0, "duration_seconds": 0})
+        if not _DESIGNER_TIME_RE.match(start_time) or not _DESIGNER_TIME_RE.match(end_time):
+            return JSONResponse({"frames": 0, "duration_seconds": 0})
         try:
             n = count_custom_snapshots(
                 snapshot_dir,
@@ -314,7 +318,8 @@ def create_app(
             )
         except Exception:
             return JSONResponse({"frames": 0, "duration_seconds": 0})
-        duration = round(n / fps, 1) if fps > 0 else 0
+        fps = max(1, fps)
+        duration = round(n / fps, 1)
         return JSONResponse({"frames": n, "duration_seconds": duration})
 
     # --- Actions ---
@@ -502,6 +507,8 @@ def create_app(
     _VIDEO_NAME_RE = _re.compile(r'^[a-zA-Z0-9_\-\.]+\.mp4$')
     _SNAP_DATE_RE  = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
     _SNAP_NAME_RE  = _re.compile(r'^[a-zA-Z0-9_\-\.]+\.jpg$')
+    _DESIGNER_DATE_RE = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
+    _DESIGNER_TIME_RE = _re.compile(r'^\d{2}:\d{2}$')
 
     @app.delete("/api/videos/permanent/{filename}")
     def delete_permanent_video(filename: str):
