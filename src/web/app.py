@@ -478,9 +478,14 @@ def create_app(
         end_date = form.get("end_date", "").strip()
         start_time = form.get("start_time", "00:00").strip()
         end_time = form.get("end_time", "23:59").strip()
+        if not _DESIGNER_TIME_RE.match(start_time) or not _DESIGNER_TIME_RE.match(end_time):
+            return app.state.redirect_with_flash("/designer", "Invalid time format.", "error")
         include_night = form.get("include_night", "false").lower() in ("true", "1", "yes")
         include_transitions = form.get("include_transitions", "true").lower() in ("true", "1", "yes")
-        nth_frame = max(1, int(form.get("nth_frame", "1") or "1"))
+        try:
+            nth_frame = max(1, int(form.get("nth_frame", "1") or "1"))
+        except ValueError:
+            nth_frame = 1
         fps_mode = form.get("fps_mode", "fps")
         name = (form.get("name") or "").strip()[:60]
 
@@ -529,17 +534,34 @@ def create_app(
 
         align = form.get("align", "true").lower() in ("true", "1", "yes")
         stabilize = form.get("stabilize", "false").lower() in ("true", "1", "yes")
-        stabilize_crop = int(form.get("stabilize_crop") or "5")
-        stabilize_smoothing = int(form.get("stabilize_smoothing") or "5")
-        stabilize_shakiness = int(form.get("stabilize_shakiness") or "5")
+        try:
+            stabilize_crop = int(form.get("stabilize_crop") or "5")
+        except ValueError:
+            stabilize_crop = 5
+        try:
+            stabilize_smoothing = int(form.get("stabilize_smoothing") or "5")
+        except ValueError:
+            stabilize_smoothing = 5
+        try:
+            stabilize_shakiness = int(form.get("stabilize_shakiness") or "5")
+        except ValueError:
+            stabilize_shakiness = 5
         subtitles = form.get("subtitles", "true").lower() in ("true", "1", "yes")
-        subtitle_every = int(form.get("subtitle_every") or "1")
+        try:
+            subtitle_every = int(form.get("subtitle_every") or "1")
+        except ValueError:
+            subtitle_every = 1
         burnin = form.get("burnin", "false").lower() in ("true", "1", "yes")
-        burnin_every = int(form.get("burnin_every") or "30")
+        try:
+            burnin_every = int(form.get("burnin_every") or "30")
+        except ValueError:
+            burnin_every = 30
 
         custom_dir = timelapse_dir / "custom"
         custom_dir.mkdir(exist_ok=True)
         slug = slugify(name)
+        if not slug:
+            return app.state.redirect_with_flash("/designer", "Name must contain at least one letter or number.", "error")
         ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         output = custom_dir / f"timelapse_custom_{slug}_{ts}.mp4"
 
@@ -592,6 +614,8 @@ def create_app(
             return JSONResponse({"ready": False})
 
         if type == "custom":
+            if not _CUSTOM_VIDEO_NAME_RE.match(watch):
+                return JSONResponse({"ready": False})
             path = timelapse_dir / "custom" / watch
             if path.is_file() and path.stat().st_mtime > since:
                 return JSONResponse({"ready": True, "file": watch})
