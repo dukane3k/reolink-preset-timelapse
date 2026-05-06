@@ -1,5 +1,398 @@
 {% extends "base.html" %}
 {% block title %}Designer — Timelapse{% endblock %}
+{% block head %}
+<style>
+  .preview-bar {
+    background: #fff;
+    border: 1px solid #e5e2dc;
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .preview-stat { text-align: center; min-width: 60px; }
+  .preview-stat .num { font-size: 1.5rem; font-weight: 700; color: #1a1a1a; line-height: 1; }
+  .preview-stat .lbl { color: #aaa; font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 3px; }
+  .preview-divider { width: 1px; background: #e5e2dc; height: 36px; }
+  .preview-summary { color: #888; font-size: 0.8rem; flex: 1; text-align: right; }
+  .preview-error { color: #cc3333; font-size: 0.8rem; flex: 1; text-align: right; }
+
+  .toggle-group { display: flex; }
+  .toggle-btn {
+    padding: 5px 12px; font-size: 0.8rem;
+    border: 1px solid #e5e2dc; background: #f5f4f0; color: #888;
+    cursor: pointer; user-select: none;
+  }
+  .toggle-btn:first-child { border-radius: 4px 0 0 4px; }
+  .toggle-btn:last-child { border-radius: 0 4px 4px 0; }
+  .toggle-btn:not(:first-child) { border-left: none; }
+  .toggle-btn.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  .field-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 16px; padding: 8px 0; border-bottom: 1px solid #f0ede8;
+  }
+  .field-row:last-child { border-bottom: none; }
+  .field-row label { color: #555; font-size: 0.85rem; padding-top: 6px; min-width: 220px; }
+  .field-input { flex: 1; max-width: 340px; }
+  .field-input input, .field-input select {
+    width: 100%; background: #f5f4f0; border: 1px solid #e5e2dc;
+    color: #1a1a1a; padding: 5px 10px; border-radius: 4px; font-size: 0.875rem;
+  }
+  .date-pair, .time-pair { display: flex; gap: 8px; max-width: 340px; width: 100%; }
+  .date-pair input, .time-pair input { flex: 1; background: #f5f4f0; border: 1px solid #e5e2dc; color: #1a1a1a; padding: 5px 10px; border-radius: 4px; font-size: 0.875rem; }
+</style>
+{% endblock %}
 {% block content %}
-<p>Timelapse Designer</p>
+<form method="post" action="/actions/timelapse/custom" id="designer-form" autocomplete="off">
+
+  <!-- Preview bar -->
+  <div class="preview-bar" id="preview-bar">
+    <div class="preview-stat">
+      <div class="num" id="preview-frames">--</div>
+      <div class="lbl">Frames</div>
+    </div>
+    <div class="preview-divider"></div>
+    <div class="preview-stat">
+      <div class="num" id="preview-duration">--</div>
+      <div class="lbl">Duration</div>
+    </div>
+    <div class="preview-divider"></div>
+    <div class="preview-stat">
+      <div class="num" id="preview-fps">{{ defaults.fps }}</div>
+      <div class="lbl">FPS</div>
+    </div>
+    <div id="preview-summary" class="preview-summary">Adjust settings to preview</div>
+  </div>
+
+  <!-- Source -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-label">Source</div>
+    <div class="field-row">
+      <label>Date range</label>
+      <div class="date-pair">
+        <input type="date" name="start_date" id="start_date"
+               min="{{ all_dates[0] if all_dates else '' }}"
+               max="{{ all_dates[-1] if all_dates else '' }}"
+               value="{{ all_dates[0] if all_dates else '' }}" required>
+        <input type="date" name="end_date" id="end_date"
+               min="{{ all_dates[0] if all_dates else '' }}"
+               max="{{ all_dates[-1] if all_dates else '' }}"
+               value="{{ all_dates[-1] if all_dates else '' }}" required>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Time window</label>
+      <div class="time-pair">
+        <input type="time" name="start_time" id="start_time" value="00:00" required>
+        <input type="time" name="end_time" id="end_time" value="23:59" required>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Include night frames</label>
+      <div class="field-input">
+        <select name="include_night" id="include_night">
+          <option value="false" selected>No</option>
+          <option value="true">Yes</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Include sunrise/sunset frames</label>
+      <div class="field-input">
+        <select name="include_transitions" id="include_transitions">
+          <option value="true" selected>Yes</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Speed -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-label">Speed</div>
+    <div class="field-row">
+      <label>Control by</label>
+      <div class="toggle-group" id="speed-toggle">
+        <div class="toggle-btn active" data-mode="fps">FPS</div>
+        <div class="toggle-btn" data-mode="duration">Target duration</div>
+        <div class="toggle-btn" data-mode="multiplier">Speed multiplier</div>
+      </div>
+      <input type="hidden" name="fps_mode" id="fps_mode" value="fps">
+    </div>
+    <div class="field-row" id="row-fps">
+      <label>Frames per second</label>
+      <div class="field-input">
+        <select name="fps" id="fps_select">
+          <option value="12" {% if defaults.fps == 12 %}selected{% endif %}>12</option>
+          <option value="24" {% if defaults.fps == 24 %}selected{% endif %}>24</option>
+          <option value="30" {% if defaults.fps == 30 %}selected{% endif %}>30</option>
+          <option value="60" {% if defaults.fps == 60 %}selected{% endif %}>60</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row" id="row-duration" style="display:none;">
+      <label>Target duration (seconds)</label>
+      <div class="field-input">
+        <input type="number" name="target_duration" id="target_duration" min="1" placeholder="e.g. 30">
+      </div>
+    </div>
+    <div class="field-row" id="row-multiplier" style="display:none;">
+      <label>Speed multiplier</label>
+      <div class="field-input">
+        <select name="speed_multiplier" id="speed_multiplier">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+          <option value="4">4x</option>
+          <option value="8">8x</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Use every Nth frame</label>
+      <div class="field-input">
+        <select name="nth_frame" id="nth_frame">
+          <option value="1" selected>Every frame</option>
+          <option value="2">Every 2nd</option>
+          <option value="3">Every 3rd</option>
+          <option value="5">Every 5th</option>
+          <option value="10">Every 10th</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Render options -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-label">Render options</div>
+    <div class="field-row">
+      <label>Frame alignment</label>
+      <div class="field-input">
+        <select name="align" id="align">
+          <option value="true" {% if defaults.align %}selected{% endif %}>Enabled</option>
+          <option value="false" {% if not defaults.align %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Stabilization</label>
+      <div class="field-input">
+        <select name="stabilize" id="stabilize">
+          <option value="false" {% if not defaults.stabilize %}selected{% endif %}>Disabled</option>
+          <option value="true" {% if defaults.stabilize %}selected{% endif %}>Enabled</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row" data-child-of="stabilize">
+      <label>Stabilize crop %</label>
+      <div class="field-input">
+        <input type="number" name="stabilize_crop" value="{{ defaults.stabilize_crop }}">
+      </div>
+    </div>
+    <div class="field-row" data-child-of="stabilize">
+      <label>Stabilize smoothing (0-100)</label>
+      <div class="field-input">
+        <input type="number" name="stabilize_smoothing" value="{{ defaults.stabilize_smoothing }}">
+      </div>
+    </div>
+    <div class="field-row" data-child-of="stabilize">
+      <label>Stabilize shakiness</label>
+      <div class="field-input">
+        <select name="stabilize_shakiness">
+          {% for v in range(1, 11) %}
+            <option value="{{ v }}" {% if defaults.stabilize_shakiness == v %}selected{% endif %}>{{ v }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Subtitles</label>
+      <div class="field-input">
+        <select name="subtitles" id="subtitles">
+          <option value="true" {% if defaults.subtitles %}selected{% endif %}>Enabled</option>
+          <option value="false" {% if not defaults.subtitles %}selected{% endif %}>Disabled</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row" data-child-of="subtitles">
+      <label>Subtitle every N frames</label>
+      <div class="field-input">
+        <input type="number" name="subtitle_every" value="{{ defaults.subtitle_every }}">
+      </div>
+    </div>
+    <div class="field-row">
+      <label>Burn-in timestamps</label>
+      <div class="field-input">
+        <select name="burnin" id="burnin">
+          <option value="false" {% if not defaults.burnin %}selected{% endif %}>Disabled</option>
+          <option value="true" {% if defaults.burnin %}selected{% endif %}>Enabled</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row" data-child-of="burnin">
+      <label>Burn-in every N minutes</label>
+      <div class="field-input">
+        <input type="number" name="burnin_every" value="{{ defaults.burnin_every }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-label">Output</div>
+    <div class="field-row">
+      <label>Video name</label>
+      <div class="field-input">
+        <input type="text" name="name" id="video_name" maxlength="60" placeholder="e.g. Spring Growth" required>
+      </div>
+    </div>
+  </div>
+
+  <!-- Build -->
+  <div style="display:flex;gap:12px;align-items:center;margin-top:4px;">
+    <button type="submit" id="build-btn" class="btn btn-primary" disabled>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="5 3 19 12 5 21 5 3"/>
+      </svg>
+      Build Timelapse
+    </button>
+    <span style="color:#bbb;font-size:0.8rem;">Output saved to Videos → Custom</span>
+  </div>
+
+</form>
+
+<script>
+(function () {
+  // --- Child field show/hide (same pattern as settings.html) ---
+  var disabledWhen = {
+    stabilize: "false",
+    subtitles: "false",
+    burnin: "false",
+  };
+  function applyChildState(parentId) {
+    var parent = document.getElementById(parentId);
+    if (!parent) return;
+    var disabled = parent.value === disabledWhen[parentId];
+    document.querySelectorAll('[data-child-of="' + parentId + '"]').forEach(function (row) {
+      row.style.opacity = disabled ? "0.4" : "";
+      row.querySelectorAll("input, select").forEach(function (el) { el.disabled = disabled; });
+    });
+  }
+  Object.keys(disabledWhen).forEach(function (id) {
+    applyChildState(id);
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("change", function () { applyChildState(id); });
+  });
+
+  // --- Speed toggle ---
+  var speedRows = { fps: "row-fps", duration: "row-duration", multiplier: "row-multiplier" };
+  document.querySelectorAll("#speed-toggle .toggle-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var mode = btn.dataset.mode;
+      document.querySelectorAll("#speed-toggle .toggle-btn").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      document.getElementById("fps_mode").value = mode;
+      Object.entries(speedRows).forEach(function (entry) {
+        document.getElementById(entry[1]).style.display = mode === entry[0] ? "" : "none";
+      });
+      updatePreviewFps();
+      schedulePreview();
+    });
+  });
+
+  // --- Preview ---
+  var previewTimer = null;
+  var DEBOUNCE_MS = 400;
+
+  function currentFps() {
+    var mode = document.getElementById("fps_mode").value;
+    if (mode === "fps") return parseInt(document.getElementById("fps_select").value, 10) || 24;
+    return 24;
+  }
+
+  function updatePreviewFps() {
+    document.getElementById("preview-fps").textContent = currentFps();
+  }
+
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(fetchPreview, DEBOUNCE_MS);
+  }
+
+  function fetchPreview() {
+    var startDate = document.getElementById("start_date").value;
+    var endDate   = document.getElementById("end_date").value;
+    var startTime = document.getElementById("start_time").value;
+    var endTime   = document.getElementById("end_time").value;
+    var night     = document.getElementById("include_night").value;
+    var trans     = document.getElementById("include_transitions").value;
+    var nth       = document.getElementById("nth_frame").value;
+    var fps       = currentFps();
+
+    if (!startDate || !endDate) return;
+
+    document.getElementById("preview-frames").textContent = "...";
+    document.getElementById("preview-duration").textContent = "...";
+
+    var url = "/api/designer/frames?start_date=" + encodeURIComponent(startDate)
+      + "&end_date=" + encodeURIComponent(endDate)
+      + "&start_time=" + encodeURIComponent(startTime)
+      + "&end_time=" + encodeURIComponent(endTime)
+      + "&include_night=" + encodeURIComponent(night)
+      + "&include_transitions=" + encodeURIComponent(trans)
+      + "&nth_frame=" + encodeURIComponent(nth)
+      + "&fps=" + encodeURIComponent(fps);
+
+    fetch(url)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var frames = data.frames || 0;
+        var dur = data.duration_seconds || 0;
+        document.getElementById("preview-frames").textContent = frames > 0 ? frames : "0";
+        document.getElementById("preview-duration").textContent = frames > 0 ? Math.round(dur) + "s" : "0s";
+        var summary = document.getElementById("preview-summary");
+        if (frames === 0) {
+          summary.className = "preview-error";
+          summary.textContent = "No frames found for this selection";
+        } else {
+          summary.className = "preview-summary";
+          summary.textContent = startDate + " - " + endDate + "  |  " + startTime + " - " + endTime;
+        }
+        updateBuildBtn(frames);
+      })
+      .catch(function () {
+        document.getElementById("preview-frames").textContent = "--";
+        document.getElementById("preview-duration").textContent = "--";
+        updateBuildBtn(0);
+      });
+  }
+
+  function updateBuildBtn(frames) {
+    var name = document.getElementById("video_name").value.trim();
+    document.getElementById("build-btn").disabled = frames === 0 || !name;
+  }
+
+  var previewFields = ["start_date", "end_date", "start_time", "end_time",
+                       "include_night", "include_transitions", "nth_frame",
+                       "fps_select", "target_duration", "speed_multiplier"];
+  previewFields.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) {
+      el.addEventListener("change", schedulePreview);
+      el.addEventListener("input", schedulePreview);
+    }
+  });
+
+  document.getElementById("video_name").addEventListener("input", function () {
+    var frames = parseInt(document.getElementById("preview-frames").textContent, 10) || 0;
+    updateBuildBtn(frames);
+  });
+
+  updatePreviewFps();
+  fetchPreview();
+})();
+</script>
 {% endblock %}
