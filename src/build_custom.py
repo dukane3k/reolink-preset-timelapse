@@ -3,9 +3,7 @@ import re
 from datetime import time
 from pathlib import Path
 
-from src.timelapse import collect_snapshots
-
-_TIMESTAMP_RE = re.compile(r"(\d{4}-\d{2}-\d{2})_(\d{2})-(\d{2})-(\d{2})")
+from src.timelapse import collect_snapshots, _parse_snapshot_dt
 
 
 def collect_custom_snapshots(
@@ -18,6 +16,8 @@ def collect_custom_snapshots(
     include_transitions: bool,
     nth_frame: int,
 ) -> list[Path]:
+    if nth_frame < 1:
+        raise ValueError(f"nth_frame must be >= 1, got {nth_frame}")
     t_start = _parse_time(start_time)
     t_end = _parse_time(end_time)
 
@@ -52,15 +52,24 @@ def count_custom_snapshots(
 
 
 def _parse_time(t: str) -> time:
+    """Parse a time string in HH:MM format.
+
+    Raises ValueError if the string is malformed or contains invalid time values.
+    """
     h, m = t.split(":")
     return time(int(h), int(m))
 
 
 def _frame_time(path: Path) -> time | None:
-    m = _TIMESTAMP_RE.search(path.stem)
-    if not m:
+    """Extract time from snapshot, stripping seconds for time range comparison.
+
+    Returns time(hour, minute) only (seconds are dropped) so comparisons match user intent
+    (e.g., frame at 23:59:30 matches end_time="23:59").
+    """
+    dt = _parse_snapshot_dt(path)
+    if not dt:
         return None
-    return time(int(m.group(2)), int(m.group(3)), int(m.group(4)))
+    return time(dt.hour, dt.minute)
 
 
 def slugify(name: str, max_len: int = 40) -> str:
