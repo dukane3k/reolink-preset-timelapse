@@ -710,3 +710,34 @@ def test_delete_snapshot_day_removes_directory(client, dirs):
 def test_delete_snapshot_day_returns_404_when_missing(client, dirs):
     resp = client.delete("/api/snapshots/2026-05-01")
     assert resp.status_code == 404
+
+
+def test_designer_page_renders(client):
+    resp = client.get("/designer")
+    assert resp.status_code == 200
+    assert b"designer" in resp.content.lower()
+
+
+def test_api_designer_frames_no_snapshots(client):
+    resp = client.get("/api/designer/frames?start_date=2026-04-28&end_date=2026-04-30"
+                      "&start_time=00:00&end_time=23:59&include_night=false"
+                      "&include_transitions=true&nth_frame=1&fps=24")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["frames"] == 0
+    assert data["duration_seconds"] == 0
+
+
+def test_api_designer_frames_counts_matching(client, dirs):
+    d = dirs["snap_dir"] / "2026-04-29"
+    d.mkdir()
+    (d / "cam_2026-04-29_10-00-00_day.jpg").write_bytes(b"x")
+    (d / "cam_2026-04-29_14-00-00_day.jpg").write_bytes(b"x")
+    (d / "cam_2026-04-29_22-00-00_night.jpg").write_bytes(b"x")
+
+    resp = client.get("/api/designer/frames?start_date=2026-04-29&end_date=2026-04-29"
+                      "&start_time=00:00&end_time=23:59&include_night=false"
+                      "&include_transitions=true&nth_frame=1&fps=24")
+    data = resp.json()
+    assert data["frames"] == 2
+    assert round(data["duration_seconds"], 1) == round(2 / 24, 1)

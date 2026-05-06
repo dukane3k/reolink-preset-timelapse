@@ -205,6 +205,7 @@ def create_app(
     }
 
     from src.web.env_editor import read_env, write_env
+    from src.build_custom import count_custom_snapshots
 
     @app.get("/settings", response_class=HTMLResponse)
     def settings_get(request: Request):
@@ -249,6 +250,72 @@ def create_app(
         except Exception:
             msg = "Settings saved. Restart the timelapse container to apply."
         return app.state.redirect_with_flash("/settings", msg)
+
+    # --- Designer ---
+
+    @app.get("/designer", response_class=HTMLResponse)
+    def designer_page(request: Request):
+        from src.config import Config
+        env_vals = dotenv_values(str(env_path))
+        for k, v in env_vals.items():
+            os.environ[k] = v or ""
+        try:
+            cfg = Config.from_env()
+            defaults = {
+                "fps": cfg.timelapse_fps,
+                "align": cfg.timelapse_align,
+                "stabilize": cfg.timelapse_stabilize,
+                "stabilize_crop": cfg.timelapse_stabilize_crop,
+                "stabilize_smoothing": cfg.timelapse_stabilize_smoothing,
+                "stabilize_shakiness": cfg.timelapse_stabilize_shakiness,
+                "subtitles": cfg.timelapse_subtitles,
+                "subtitle_every": cfg.timelapse_subtitle_every,
+                "burnin": cfg.timelapse_burnin,
+                "burnin_every": cfg.timelapse_burnin_every,
+            }
+        except Exception:
+            defaults = {
+                "fps": 24, "align": True, "stabilize": False,
+                "stabilize_crop": 5, "stabilize_smoothing": 5, "stabilize_shakiness": 5,
+                "subtitles": True, "subtitle_every": 1, "burnin": False, "burnin_every": 30,
+            }
+        all_dates = sorted(
+            [d.name for d in snapshot_dir.iterdir() if d.is_dir()],
+        ) if snapshot_dir.exists() else []
+        return app.state.render(
+            "designer.html", request, "designer",
+            all_dates=all_dates,
+            defaults=defaults,
+        )
+
+    @app.get("/api/designer/frames")
+    def api_designer_frames(
+        start_date: str = "",
+        end_date: str = "",
+        start_time: str = "00:00",
+        end_time: str = "23:59",
+        include_night: str = "false",
+        include_transitions: str = "true",
+        nth_frame: int = 1,
+        fps: int = 24,
+    ):
+        if not start_date or not end_date:
+            return JSONResponse({"frames": 0, "duration_seconds": 0})
+        try:
+            n = count_custom_snapshots(
+                snapshot_dir,
+                start_date=start_date,
+                end_date=end_date,
+                start_time=start_time,
+                end_time=end_time,
+                include_night=include_night.lower() in ("1", "true", "yes"),
+                include_transitions=include_transitions.lower() in ("1", "true", "yes"),
+                nth_frame=max(1, nth_frame),
+            )
+        except Exception:
+            return JSONResponse({"frames": 0, "duration_seconds": 0})
+        duration = round(n / fps, 1) if fps > 0 else 0
+        return JSONResponse({"frames": n, "duration_seconds": duration})
 
     # --- Actions ---
 
