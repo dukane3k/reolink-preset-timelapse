@@ -741,3 +741,92 @@ def test_api_designer_frames_counts_matching(client, dirs):
     data = resp.json()
     assert data["frames"] == 2
     assert round(data["duration_seconds"], 1) == round(2 / 24, 1)
+
+
+def test_action_timelapse_custom_redirects(client, dirs):
+    from unittest.mock import patch, MagicMock
+    d = dirs["snap_dir"] / "2026-04-29"
+    d.mkdir()
+    (d / "cam_2026-04-29_10-00-00_day.jpg").write_bytes(b"x")
+
+    with patch("src.web.app.build_timelapse") as mock_build:
+        mock_build.return_value = None
+        resp = client.post("/actions/timelapse/custom", data={
+            "start_date": "2026-04-29",
+            "end_date": "2026-04-29",
+            "start_time": "00:00",
+            "end_time": "23:59",
+            "include_night": "false",
+            "include_transitions": "true",
+            "nth_frame": "1",
+            "fps_mode": "fps",
+            "fps": "24",
+            "target_duration": "",
+            "speed_multiplier": "1",
+            "align": "true",
+            "stabilize": "false",
+            "stabilize_crop": "5",
+            "stabilize_smoothing": "5",
+            "stabilize_shakiness": "5",
+            "subtitles": "true",
+            "subtitle_every": "1",
+            "burnin": "false",
+            "burnin_every": "30",
+            "name": "Spring Growth",
+        })
+    assert resp.status_code == 303
+    assert "/videos" in resp.headers["location"]
+
+
+def test_action_timelapse_custom_validates_dates(client):
+    resp = client.post("/actions/timelapse/custom", data={
+        "start_date": "2026-04-30",
+        "end_date": "2026-04-28",
+        "start_time": "00:00",
+        "end_time": "23:59",
+        "name": "Bad",
+        "fps_mode": "fps", "fps": "24",
+        "nth_frame": "1",
+    })
+    assert resp.status_code == 303
+    assert "flash" in str(resp.headers).lower() or "error" in resp.headers.get("set-cookie", "").lower()
+
+
+def test_action_timelapse_custom_requires_name(client, dirs):
+    d = dirs["snap_dir"] / "2026-04-29"
+    d.mkdir()
+    (d / "cam_2026-04-29_10-00-00_day.jpg").write_bytes(b"x")
+    resp = client.post("/actions/timelapse/custom", data={
+        "start_date": "2026-04-29",
+        "end_date": "2026-04-29",
+        "start_time": "00:00",
+        "end_time": "23:59",
+        "name": "",
+        "fps_mode": "fps", "fps": "24",
+        "nth_frame": "1",
+    })
+    assert resp.status_code == 303
+    assert "error" in resp.headers.get("set-cookie", "").lower()
+
+
+def test_delete_custom_video(client, dirs):
+    custom_dir = dirs["video_dir"] / "custom"
+    custom_dir.mkdir()
+    f = custom_dir / "timelapse_custom_spring-growth_2026-04-29_10-00-00.mp4"
+    f.write_bytes(b"FAKEMP4")
+    resp = client.delete(f"/api/videos/custom/{f.name}")
+    assert resp.status_code == 200
+    assert not f.exists()
+
+
+def test_api_status_custom_type(client, dirs):
+    import time as _time
+    custom_dir = dirs["video_dir"] / "custom"
+    custom_dir.mkdir()
+    fname = "timelapse_custom_spring_2026-04-29_10-00-00.mp4"
+    since = _time.time() - 10
+    f = custom_dir / fname
+    f.write_bytes(b"FAKEMP4")
+    resp = client.get(f"/api/status?watch={fname}&type=custom&since={since}")
+    assert resp.status_code == 200
+    assert resp.json()["ready"] is True

@@ -205,7 +205,7 @@ def create_app(
     }
 
     from src.web.env_editor import read_env, write_env
-    from src.build_custom import count_custom_snapshots
+    from src.build_custom import count_custom_snapshots, collect_custom_snapshots, slugify
 
     @app.get("/settings", response_class=HTMLResponse)
     def settings_get(request: Request):
@@ -469,6 +469,105 @@ def create_app(
             "Building permanent timelapse - this may take several minutes.",
         )
 
+    @app.post("/actions/timelapse/custom")
+    async def action_timelapse_custom(request: Request, background_tasks: BackgroundTasks):
+        from datetime import datetime
+
+        form = await request.form()
+        start_date = form.get("start_date", "").strip()
+        end_date = form.get("end_date", "").strip()
+        start_time = form.get("start_time", "00:00").strip()
+        end_time = form.get("end_time", "23:59").strip()
+        include_night = form.get("include_night", "false").lower() in ("true", "1", "yes")
+        include_transitions = form.get("include_transitions", "true").lower() in ("true", "1", "yes")
+        nth_frame = max(1, int(form.get("nth_frame", "1") or "1"))
+        fps_mode = form.get("fps_mode", "fps")
+        name = (form.get("name") or "").strip()[:60]
+
+        if not start_date or not end_date or end_date < start_date:
+            return app.state.redirect_with_flash("/designer", "End date must be on or after start date.", "error")
+        if start_time >= end_time:
+            return app.state.redirect_with_flash("/designer", "End time must be after start time.", "error")
+        if not name:
+            return app.state.redirect_with_flash("/designer", "Video name is required.", "error")
+
+        snaps = collect_custom_snapshots(
+            snapshot_dir, start_date, end_date, start_time, end_time,
+            include_night, include_transitions, nth_frame,
+        )
+        if not snaps:
+            return app.state.redirect_with_flash("/designer", "No snapshots found for that selection.", "error")
+
+        env_vals = dotenv_values(str(env_path))
+        for k, v in env_vals.items():
+            os.environ[k] = v or ""
+        try:
+            from src.config import Config
+            cfg = Config.from_env()
+        except Exception as exc:
+            return app.state.redirect_with_flash("/designer", f"Config error: {exc}", "error")
+
+        # Compute effective FPS
+        base_fps = cfg.timelapse_fps
+        if fps_mode == "duration":
+            try:
+                target_secs = float(form.get("target_duration") or "0")
+                fps = max(1, min(60, round(len(snaps) / target_secs))) if target_secs > 0 else base_fps
+            except (ValueError, ZeroDivisionError):
+                fps = base_fps
+        elif fps_mode == "multiplier":
+            try:
+                multiplier = float(form.get("speed_multiplier") or "1")
+                fps = max(1, min(60, round(base_fps * multiplier)))
+            except ValueError:
+                fps = base_fps
+        else:
+            try:
+                fps = max(1, min(60, int(form.get("fps") or str(base_fps))))
+            except ValueError:
+                fps = base_fps
+
+        align = form.get("align", "true").lower() in ("true", "1", "yes")
+        stabilize = form.get("stabilize", "false").lower() in ("true", "1", "yes")
+        stabilize_crop = int(form.get("stabilize_crop") or "5")
+        stabilize_smoothing = int(form.get("stabilize_smoothing") or "5")
+        stabilize_shakiness = int(form.get("stabilize_shakiness") or "5")
+        subtitles = form.get("subtitles", "true").lower() in ("true", "1", "yes")
+        subtitle_every = int(form.get("subtitle_every") or "1")
+        burnin = form.get("burnin", "false").lower() in ("true", "1", "yes")
+        burnin_every = int(form.get("burnin_every") or "30")
+
+        custom_dir = timelapse_dir / "custom"
+        custom_dir.mkdir(exist_ok=True)
+        slug = slugify(name)
+        ts = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output = custom_dir / f"timelapse_custom_{slug}_{ts}.mp4"
+
+        def do_build():
+            try:
+                build_timelapse(
+                    snaps, output, fps=fps,
+                    align=align, stabilize=stabilize,
+                    stabilize_crop=stabilize_crop,
+                    stabilize_smoothing=stabilize_smoothing,
+                    stabilize_shakiness=stabilize_shakiness,
+                    subtitles=subtitles, subtitle_every=subtitle_every,
+                    burnin=burnin, burnin_every_minutes=burnin_every,
+                )
+            except Exception as exc:
+                logging.getLogger("web.actions").error("Custom timelapse build failed: %s", exc)
+
+        import time
+        since = time.time()
+        background_tasks.add_task(do_build)
+        watch = output.name
+        if "application/json" in request.headers.get("accept", ""):
+            return JSONResponse({"watch": watch, "type": "custom", "since": since})
+        return app.state.redirect_with_flash(
+            f"/videos?watch={watch}&type=custom&since={since}",
+            f"Building \"{name}\" - check Videos in a moment.",
+        )
+
     _STATUS_VIDEO_RE = _re.compile(r'^timelapse_\d{4}-\d{2}-\d{2}\.mp4$')
     _STATUS_PERM_RE  = _re.compile(r'^timelapse_permanent_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$')
     _STATUS_DATE_RE  = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
@@ -492,6 +591,12 @@ def create_app(
                 return JSONResponse({"ready": True, "file": watch})
             return JSONResponse({"ready": False})
 
+        if type == "custom":
+            path = timelapse_dir / "custom" / watch
+            if path.is_file() and path.stat().st_mtime > since:
+                return JSONResponse({"ready": True, "file": watch})
+            return JSONResponse({"ready": False})
+
         if type == "snapshot":
             if not _STATUS_DATE_RE.match(watch):
                 return JSONResponse({"ready": False})
@@ -509,6 +614,7 @@ def create_app(
     _SNAP_NAME_RE  = _re.compile(r'^[a-zA-Z0-9_\-\.]+\.jpg$')
     _DESIGNER_DATE_RE = _re.compile(r'^\d{4}-\d{2}-\d{2}$')
     _DESIGNER_TIME_RE = _re.compile(r'^\d{2}:\d{2}$')
+    _CUSTOM_VIDEO_NAME_RE = _re.compile(r'^timelapse_custom_[a-z0-9\-]+_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.mp4$')
 
     @app.delete("/api/videos/permanent/{filename}")
     def delete_permanent_video(filename: str):
@@ -525,6 +631,16 @@ def create_app(
         if not _VIDEO_NAME_RE.match(filename):
             return JSONResponse({"error": "invalid filename"}, status_code=400)
         path = timelapse_dir / filename
+        if not path.exists():
+            return JSONResponse({"error": "not found"}, status_code=404)
+        path.unlink()
+        return JSONResponse({"deleted": filename})
+
+    @app.delete("/api/videos/custom/{filename}")
+    def delete_custom_video(filename: str):
+        if not _CUSTOM_VIDEO_NAME_RE.match(filename):
+            return JSONResponse({"error": "invalid filename"}, status_code=400)
+        path = timelapse_dir / "custom" / filename
         if not path.exists():
             return JSONResponse({"error": "not found"}, status_code=404)
         path.unlink()
