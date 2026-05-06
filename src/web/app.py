@@ -492,6 +492,8 @@ def create_app(
         fps_mode = form.get("fps_mode", "fps")
         name = (form.get("name") or "").strip()[:60]
 
+        if not _DESIGNER_DATE_RE.match(start_date) or not _DESIGNER_DATE_RE.match(end_date):
+            return app.state.redirect_with_flash("/designer", "Invalid date format.", "error")
         if not start_date or not end_date or end_date < start_date:
             return app.state.redirect_with_flash("/designer", "End date must be on or after start date.", "error")
         if start_time >= end_time:

@@ -51,12 +51,12 @@
   <!-- Preview bar -->
   <div class="preview-bar" id="preview-bar">
     <div class="preview-stat">
-      <div class="num" id="preview-frames">--</div>
+      <div class="num" id="preview-frames">—</div>
       <div class="lbl">Frames</div>
     </div>
     <div class="preview-divider"></div>
     <div class="preview-stat">
-      <div class="num" id="preview-duration">--</div>
+      <div class="num" id="preview-duration">—</div>
       <div class="lbl">Duration</div>
     </div>
     <div class="preview-divider"></div>
@@ -361,8 +361,8 @@
         updateBuildBtn(frames);
       })
       .catch(function () {
-        document.getElementById("preview-frames").textContent = "--";
-        document.getElementById("preview-duration").textContent = "--";
+        document.getElementById("preview-frames").textContent = "—";
+        document.getElementById("preview-duration").textContent = "—";
         updateBuildBtn(0);
       });
   }
